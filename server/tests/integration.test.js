@@ -118,6 +118,15 @@ test("API health endpoint", async () => {
   assert.ok(response.body.timestamp);
 });
 
+test("Vercel rewrite preserves the API health path", async () => {
+  const response = await request(vercelHandler).get(
+    "/api?__bloodcare_path=%2Fapi%2Fhealth&probe=preserved",
+  );
+  assert.equal(response.status, 200);
+  assert.equal(response.body.success, true);
+  assert.equal(response.body.message, "BloodCare API is running");
+});
+
 test("authentication and role authorization", async () => {
   const invalidRole = await request(app).post("/api/auth/register").send({
     name: "No Admin",
@@ -220,12 +229,25 @@ test("booking, duplicate protection, cancellation, and rescheduling", async () =
     collectionType: "LAB_VISIT",
   };
   const concurrent = await Promise.all([
-    request(app).post("/api/appointments").set(auth(patientToken)).send(concurrentPayload),
-    request(app).post("/api/appointments").set(auth(otherPatientToken)).send(concurrentPayload),
+    request(app)
+      .post("/api/appointments")
+      .set(auth(patientToken))
+      .send(concurrentPayload),
+    request(app)
+      .post("/api/appointments")
+      .set(auth(otherPatientToken))
+      .send(concurrentPayload),
   ]);
-  assert.deepEqual(concurrent.map((response) => response.status).sort(), [201, 409]);
-  const concurrentWinner = concurrent.find((response) => response.status === 201);
-  await request(app).patch(`/api/appointments/${concurrentWinner.body.data._id}/cancel`).set(auth(patientToken));
+  assert.deepEqual(
+    concurrent.map((response) => response.status).sort(),
+    [201, 409],
+  );
+  const concurrentWinner = concurrent.find(
+    (response) => response.status === 201,
+  );
+  await request(app)
+    .patch(`/api/appointments/${concurrentWinner.body.data._id}/cancel`)
+    .set(auth(patientToken));
   const rescheduled = await request(app)
     .patch(`/api/appointments/${appointment._id}/reschedule`)
     .set(auth(patientToken))
@@ -276,7 +298,10 @@ test("sample lifecycle, report review, patient ownership, PDF, notifications, an
   }
   const current = await Appointment.findById(id);
   assert.equal(current.sampleStatus, "IN_TESTING");
-  assert.match(current.sampleId, new RegExp(`^BL-${new Date().getFullYear()}-\\d{6}$`));
+  assert.match(
+    current.sampleId,
+    new RegExp(`^BL-${new Date().getFullYear()}-\\d{6}$`),
+  );
   assert.deepEqual(
     current.sampleStatusHistory.map((entry) => entry.status),
     ["COLLECTED", "RECEIVED", "IN_TESTING"],
@@ -381,20 +406,52 @@ test("report correction and rejection workflow", async () => {
   const booking = await request(app)
     .post("/api/appointments")
     .set(auth(patientToken))
-    .send({ testId: testDefinition._id, technicianId: technician._id, appointmentDate: date, startTime: "11:00", collectionType: "LAB_VISIT" });
+    .send({
+      testId: testDefinition._id,
+      technicianId: technician._id,
+      appointmentDate: date,
+      startTime: "11:00",
+      collectionType: "LAB_VISIT",
+    });
   assert.equal(booking.status, 201);
   const appointmentId = booking.body.data._id;
   for (const status of ["SAMPLE_COLLECTED", "SAMPLE_RECEIVED", "TESTING"]) {
-    assert.equal((await request(app).patch(`/api/appointments/${appointmentId}/status`).set(auth(technicianToken)).send({ status })).status, 200);
+    assert.equal(
+      (
+        await request(app)
+          .patch(`/api/appointments/${appointmentId}/status`)
+          .set(auth(technicianToken))
+          .send({ status })
+      ).status,
+      200,
+    );
   }
-  const submit = await request(app).post(`/api/reports/appointments/${appointmentId}`).set(auth(technicianToken)).send({ results: [{ marker: "QA", value: "1" }], interpretation: "Initial" });
+  const submit = await request(app)
+    .post(`/api/reports/appointments/${appointmentId}`)
+    .set(auth(technicianToken))
+    .send({
+      results: [{ marker: "QA", value: "1" }],
+      interpretation: "Initial",
+    });
   assert.equal(submit.status, 201);
-  const correction = await request(app).patch(`/api/reports/${submit.body.data._id}/correction`).set(auth(adminToken)).send({ reason: "Add reference range" });
+  const correction = await request(app)
+    .patch(`/api/reports/${submit.body.data._id}/correction`)
+    .set(auth(adminToken))
+    .send({ reason: "Add reference range" });
   assert.equal(correction.status, 200);
   assert.equal((await Appointment.findById(appointmentId)).status, "TESTING");
-  const resubmitted = await request(app).post(`/api/reports/appointments/${appointmentId}`).set(auth(technicianToken)).send({ results: [{ marker: "QA", value: "1", referenceRange: "0-2" }], interpretation: "Updated" });
+  const resubmitted = await request(app)
+    .post(`/api/reports/appointments/${appointmentId}`)
+    .set(auth(technicianToken))
+    .send({
+      results: [{ marker: "QA", value: "1", referenceRange: "0-2" }],
+      interpretation: "Updated",
+    });
   assert.equal(resubmitted.status, 201);
-  const rejected = await request(app).patch(`/api/reports/${submit.body.data._id}/reject`).set(auth(adminToken)).send({ reason: "Invalid result" });
+  const rejected = await request(app)
+    .patch(`/api/reports/${submit.body.data._id}/reject`)
+    .set(auth(adminToken))
+    .send({ reason: "Invalid result" });
   assert.equal(rejected.status, 200);
   assert.equal(rejected.body.data.rejectionReason, "Invalid result");
 });

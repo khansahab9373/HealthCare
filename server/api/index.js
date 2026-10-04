@@ -5,8 +5,20 @@ export default async function handler(req, res) {
   try {
     await connectDB();
 
-    if (req.url !== "/api" && !req.url.startsWith("/api/")) {
-      req.url = `/api${req.url.startsWith("/") ? "" : "/"}${req.url}`;
+    const requestUrl = new URL(req.url, "http://localhost");
+    const rewrittenPath =
+      requestUrl.pathname === "/api"
+        ? requestUrl.searchParams.get("__bloodcare_path")
+        : null;
+
+    if (rewrittenPath === "/api" || rewrittenPath?.startsWith("/api/")) {
+      requestUrl.searchParams.delete("__bloodcare_path");
+      req.url = `${rewrittenPath}${requestUrl.search}`;
+    } else if (
+      requestUrl.pathname !== "/api" &&
+      !requestUrl.pathname.startsWith("/api/")
+    ) {
+      req.url = `/api${requestUrl.pathname}${requestUrl.search}`;
     }
 
     return app(req, res);
