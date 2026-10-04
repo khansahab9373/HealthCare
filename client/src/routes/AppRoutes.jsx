@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 import HomePage from "../pages/HomePage.jsx";
 import LoginPage from "../pages/LoginPage.jsx";
@@ -23,6 +23,7 @@ import ToastHost from "../components/ToastHost.jsx";
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -37,10 +38,33 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/unauthorized" replace state={{ from: location.pathname }} />;
   }
 
   return children;
+};
+
+const UnauthorizedPage = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-slate-100 p-4">
+      <section className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-sm sm:p-8">
+        <p className="text-sm font-semibold uppercase text-cyan-800">HealthCare</p>
+        <h1 className="mt-3 text-2xl font-bold text-slate-900">Access denied</h1>
+        <p className="mt-2 text-slate-600">You don&apos;t have permission to access this page.</p>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Link className="rounded-lg bg-cyan-800 px-4 py-2 font-semibold text-white" to="/dashboard">
+            Go to dashboard
+          </Link>
+          <button className="rounded-lg border border-slate-300 px-4 py-2 font-semibold text-slate-700" onClick={() => location.key === "default" ? navigate("/dashboard", { replace: true }) : navigate(-1)}>
+            Go back
+          </button>
+        </div>
+      </section>
+    </main>
+  );
 };
 
 const AppRoutes = () => {
@@ -51,6 +75,7 @@ const AppRoutes = () => {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/unauthorized" element={<UnauthorizedPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route
           path="/register/technician"

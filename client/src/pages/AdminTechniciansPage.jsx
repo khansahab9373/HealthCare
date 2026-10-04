@@ -15,25 +15,33 @@ const AdminTechniciansPage = () => {
   const [error, setError] = useState("");
   const [rejectionReasons, setRejectionReasons] = useState({});
   const [tests, setTests] = useState([]);
+  const [downloadingDocumentId, setDownloadingDocumentId] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
+    let active = true;
     const loadTechnicians = async () => {
+      setLoading(true);
+      setError("");
       try {
         const [{ data }, testResponse] = await Promise.all([
           api.get("/users/technicians"),
           api.get("/tests"),
         ]);
-        setTechnicians(data.data || []);
-        setTests(testResponse.data.data || []);
+        if (active) {
+          setTechnicians(data.data || []);
+          setTests(testResponse.data.data || []);
+        }
       } catch (err) {
-        setError(err.response?.data?.message || "Unable to load technicians.");
+        if (active) setError(err.response?.data?.message || "Unable to load technicians.");
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
 
     loadTechnicians();
-  }, []);
+    return () => { active = false; };
+  }, [retryCount]);
 
   const updateStatus = async (technicianId, technicianStatus) => {
     setError("");
@@ -90,6 +98,8 @@ const AdminTechniciansPage = () => {
   };
 
   const openDocument = async (technicianId, documentId, name) => {
+    if (downloadingDocumentId) return;
+    setDownloadingDocumentId(documentId);
     try {
       const response = await api.get(
         `/users/technicians/${technicianId}/documents/${documentId}`,
@@ -100,12 +110,14 @@ const AdminTechniciansPage = () => {
       link.href = url;
       link.download = name;
       link.click();
-      URL.revokeObjectURL(url);
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err) {
       setError(
         err.response?.data?.message ||
           "Unable to access verification document.",
       );
+        } finally {
+          setDownloadingDocumentId(null);
     }
   };
 
@@ -137,6 +149,11 @@ const AdminTechniciansPage = () => {
         {loading ? (
           <div className="rounded-2xl bg-white p-7 text-slate-700 shadow-sm">
             Loading technicians...
+          </div>
+        ) : error && technicians.length === 0 ? (
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-rose-800" role="alert">
+            <p>{error}</p>
+            <button onClick={() => setRetryCount((count) => count + 1)} className="mt-3 rounded-lg border border-rose-300 px-4 py-2 font-semibold">Retry</button>
           </div>
         ) : technicians.length === 0 ? (
           <div className="rounded-2xl bg-white p-7 text-slate-700 shadow-sm">
@@ -207,6 +224,7 @@ const AdminTechniciansPage = () => {
                           <li key={document._id}>
                             <button
                               type="button"
+                              disabled={downloadingDocumentId === document._id}
                               className="text-cyan-700 underline"
                               onClick={() =>
                                 openDocument(
@@ -216,7 +234,7 @@ const AdminTechniciansPage = () => {
                                 )
                               }
                             >
-                              {document.name}
+                              {downloadingDocumentId === document._id ? "Opening..." : document.name}
                             </button>
                           </li>
                         ))}

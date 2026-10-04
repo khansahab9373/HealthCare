@@ -21,6 +21,9 @@ body,
   min-height: 100%;
   margin: 0;
 }
+html {
+  scroll-behavior: smooth;
+}
 body {
   overflow-x: hidden;
 }
@@ -50,6 +53,12 @@ table {
 }
 
 @media (max-width: 640px) {
+  main.landing-main {
+    padding: 0 !important;
+  }
+  main.landing-main > section {
+    border-radius: 0 !important;
+  }
   main {
     padding: 1rem !important;
   }
@@ -88,6 +97,20 @@ table {
   }
   .mobile-nav-trigger {
     display: block;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 

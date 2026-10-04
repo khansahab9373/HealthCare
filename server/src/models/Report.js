@@ -58,6 +58,10 @@ const reportSchema = new mongoose.Schema(
     },
     approvedAt: Date,
     approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    pdfSecureUrl: String,
+    pdfPublicId: String,
+    pdfFormat: String,
+    pdfResourceType: String,
   },
   { timestamps: true },
 );

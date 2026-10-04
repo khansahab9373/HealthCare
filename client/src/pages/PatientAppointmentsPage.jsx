@@ -9,27 +9,47 @@ const PatientAppointmentsPage = () => {
   const [reschedule, setReschedule] = useState(null);
   const [rescheduleSlots, setRescheduleSlots] = useState([]);
   const [rescheduleSlot, setRescheduleSlot] = useState(null);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [cancelingId, setCancelingId] = useState(null);
+  const [rescheduling, setRescheduling] = useState(false);
 
   useEffect(() => {
-    if (!reschedule?.date || !reschedule?.appointment.test?._id) return;
+    if (!reschedule?.date || !reschedule?.appointment.test?._id) {
+      setRescheduleSlots([]);
+      setRescheduleSlot(null);
+      return;
+    }
+    let active = true;
     const loadSlots = async () => {
+      setSlotsLoading(true);
+      setRescheduleSlots([]);
+      setRescheduleSlot(null);
+      setError("");
       try {
         const { data } = await api.get(
           `/appointments/slots?testId=${reschedule.appointment.test._id}&date=${reschedule.date}`,
         );
-        setRescheduleSlots(data.data || []);
-        setRescheduleSlot(null);
+        if (active) setRescheduleSlots(data.data || []);
       } catch (err) {
-        setRescheduleSlots([]);
-        setError(
-          err.response?.data?.message || "Unable to load replacement slots.",
-        );
+        if (active) {
+          setRescheduleSlots([]);
+          setError(
+            err.response?.data?.message || "Unable to load replacement slots.",
+          );
+        }
+      } finally {
+        if (active) setSlotsLoading(false);
       }
     };
     loadSlots();
+    return () => {
+      active = false;
+    };
   }, [reschedule?.date, reschedule?.appointment.test?._id]);
 
   const cancelAppointment = async (appointmentId) => {
+    if (cancelingId || !window.confirm("Cancel this appointment?")) return;
+    setCancelingId(appointmentId);
     setError("");
     try {
       const { data } = await api.patch(`/appointments/${appointmentId}/cancel`);
@@ -42,11 +62,15 @@ const PatientAppointmentsPage = () => {
       );
     } catch (err) {
       setError(err.response?.data?.message || "Unable to cancel appointment.");
+    } finally {
+      setCancelingId(null);
     }
   };
 
   const submitReschedule = async () => {
+    if (rescheduling) return;
     if (!rescheduleSlot) return setError("Choose a replacement slot first.");
+    setRescheduling(true);
     try {
       const { data } = await api.patch(
         `/appointments/${reschedule.appointment._id}/reschedule`,
@@ -66,6 +90,8 @@ const PatientAppointmentsPage = () => {
       setError(
         err.response?.data?.message || "Unable to reschedule appointment.",
       );
+    } finally {
+      setRescheduling(false);
     }
   };
 
@@ -194,8 +220,11 @@ const PatientAppointmentsPage = () => {
                   appointment.status,
                 ) && (
                   <div className="mt-4">
-                    <button
+                          {slotsLoading && <p role="status">Finding available slots...</p>}
+                          {!slotsLoading && rescheduleSlots.length === 0 && <p className="text-sm text-slate-600">No replacement slots are available for this date.</p>}
+                          <button
                       type="button"
+                            disabled={slotsLoading || rescheduling || !rescheduleSlot}
                       onClick={() =>
                         setReschedule({
                           appointment,
@@ -239,7 +268,7 @@ const PatientAppointmentsPage = () => {
                           onClick={submitReschedule}
                           className="rounded-lg bg-cyan-700 px-4 py-2 text-sm font-semibold text-white"
                         >
-                          Confirm reschedule
+                          {rescheduling ? "Rescheduling..." : "Confirm reschedule"}
                         </button>
                       </div>
                     )}
@@ -250,10 +279,11 @@ const PatientAppointmentsPage = () => {
                 ) && (
                   <button
                     type="button"
+                    disabled={cancelingId === appointment._id}
                     onClick={() => cancelAppointment(appointment._id)}
                     className="mt-4 rounded-full border border-rose-200 px-4 py-2 text-sm font-semibold text-rose-700"
                   >
-                    Cancel appointment
+                    {cancelingId === appointment._id ? "Cancelling..." : "Cancel appointment"}
                   </button>
                 )}
               </article>

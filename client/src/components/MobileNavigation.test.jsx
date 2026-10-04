@@ -1,7 +1,7 @@
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { vi, describe, it, expect } from "vitest";
+import { afterEach, vi, describe, it, expect } from "vitest";
 import MobileNavigation from "./MobileNavigation.jsx";
 
 const logout = vi.fn();
@@ -13,9 +13,11 @@ vi.mock("../context/AuthContext.jsx", () => ({
 }));
 
 describe("MobileNavigation", () => {
+  afterEach(() => cleanup());
+
   it("opens patient navigation and logs out", () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={["/dashboard"]}>
         <MobileNavigation />
       </MemoryRouter>,
     );
@@ -27,5 +29,22 @@ describe("MobileNavigation", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Log out" }));
     expect(logout).toHaveBeenCalledOnce();
+  });
+
+  it("marks the active route and closes on Escape with focus restored", () => {
+    render(
+      <MemoryRouter initialEntries={["/patient/tests"]}>
+        <MobileNavigation />
+      </MemoryRouter>,
+    );
+    const trigger = screen.getByRole("button", { name: "Open navigation" });
+    fireEvent.click(trigger);
+    expect(screen.getByRole("link", { name: "Book a test" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(trigger).toHaveFocus();
   });
 });

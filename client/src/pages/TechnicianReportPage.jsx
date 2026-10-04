@@ -18,6 +18,7 @@ const TechnicianReportPage = () => {
   const [interpretation, setInterpretation] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const updateResult = (index, field, value) => {
     setResults((current) =>
@@ -29,8 +30,10 @@ const TechnicianReportPage = () => {
 
   const submitReport = async (event) => {
     event.preventDefault();
+    if (submitting) return;
     setError("");
     setMessage("");
+    setSubmitting(true);
     try {
       await api.post(`/reports/appointments/${appointmentId}`, {
         results,
@@ -40,6 +43,8 @@ const TechnicianReportPage = () => {
       setTimeout(() => navigate("/technician/appointments"), 900);
     } catch (err) {
       setError(err.response?.data?.message || "Unable to submit report.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -73,6 +78,7 @@ const TechnicianReportPage = () => {
             >
               <input
                 required
+                aria-label={`Result ${index + 1} marker`}
                 placeholder="Marker"
                 value={result.marker}
                 onChange={(event) =>
@@ -82,6 +88,7 @@ const TechnicianReportPage = () => {
               />
               <input
                 required
+                aria-label={`Result ${index + 1} value`}
                 placeholder="Value"
                 value={result.value}
                 onChange={(event) =>
@@ -91,6 +98,7 @@ const TechnicianReportPage = () => {
               />
               <input
                 placeholder="Unit"
+                aria-label={`Result ${index + 1} unit`}
                 value={result.unit}
                 onChange={(event) =>
                   updateResult(index, "unit", event.target.value)
@@ -99,6 +107,7 @@ const TechnicianReportPage = () => {
               />
               <input
                 placeholder="Reference range"
+                aria-label={`Result ${index + 1} reference range`}
                 value={result.referenceRange}
                 onChange={(event) =>
                   updateResult(index, "referenceRange", event.target.value)
@@ -107,6 +116,7 @@ const TechnicianReportPage = () => {
               />
               <input
                 placeholder="Remarks"
+                aria-label={`Result ${index + 1} remarks`}
                 value={result.remarks}
                 onChange={(event) =>
                   updateResult(index, "remarks", event.target.value)
@@ -114,6 +124,7 @@ const TechnicianReportPage = () => {
                 className="rounded-lg border border-slate-200 px-3 py-2"
               />
               <select
+                aria-label={`Result ${index + 1} flag`}
                 value={result.flag}
                 onChange={(event) =>
                   updateResult(index, "flag", event.target.value)
@@ -148,6 +159,7 @@ const TechnicianReportPage = () => {
           </button>
           <textarea
             required
+            aria-label="Clinical interpretation"
             value={interpretation}
             onChange={(event) => setInterpretation(event.target.value)}
             placeholder="Clinical interpretation"
@@ -157,9 +169,10 @@ const TechnicianReportPage = () => {
           {error && <p className="text-rose-700">{error}</p>}
           <button
             type="submit"
+            disabled={submitting}
             className="rounded-xl bg-cyan-700 px-5 py-3 font-semibold text-white"
           >
-            Submit for approval
+            {submitting ? "Submitting..." : "Submit for approval"}
           </button>
         </form>
       </div>

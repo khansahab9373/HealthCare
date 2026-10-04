@@ -3,17 +3,43 @@ import api from '../services/api.js';
 
 const AuthContext = createContext();
 
-export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => {
+const persistUserIdentity = (user) => {
+  const { _id, name, email, role, isActive } = user;
+  localStorage.setItem(
+    'bloodcare_user',
+    JSON.stringify({ _id, name, email, role, isActive }),
+  );
+};
+
+const readSavedUser = () => {
+  try {
     const savedUser = localStorage.getItem('bloodcare_user');
-    return savedUser ? JSON.parse(savedUser) : null;
-  });
+    const user = savedUser ? JSON.parse(savedUser) : null;
+    if (
+      user &&
+      (typeof user !== 'object' ||
+        !['PATIENT', 'TECHNICIAN', 'ADMIN'].includes(user.role))
+    ) {
+      localStorage.removeItem('bloodcare_user');
+      return null;
+    }
+    return user;
+  } catch {
+    localStorage.removeItem('bloodcare_user');
+    return null;
+  }
+};
+
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(readSavedUser);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadCurrentUser = async () => {
       const token = localStorage.getItem('bloodcare_token');
       if (!token) {
+        localStorage.removeItem('bloodcare_user');
+        setUser(null);
         setLoading(false);
         return;
       }
@@ -22,7 +48,7 @@ export const AuthProvider = ({ children }) => {
         const { data } = await api.get('/auth/me');
         const currentUser = data.data;
         setUser(currentUser);
-        localStorage.setItem('bloodcare_user', JSON.stringify(currentUser));
+        persistUserIdentity(currentUser);
       } catch {
         localStorage.removeItem('bloodcare_token');
         localStorage.removeItem('bloodcare_user');
@@ -39,7 +65,7 @@ export const AuthProvider = ({ children }) => {
     const { data } = await api.post('/auth/login', payload);
     const sessionUser = data.data.user;
     localStorage.setItem('bloodcare_token', data.data.token);
-    localStorage.setItem('bloodcare_user', JSON.stringify(sessionUser));
+    persistUserIdentity(sessionUser);
     setUser(sessionUser);
     return data;
   };
@@ -48,7 +74,7 @@ export const AuthProvider = ({ children }) => {
     const { data } = await api.post('/auth/register', payload);
     const sessionUser = data.data.user;
     localStorage.setItem('bloodcare_token', data.data.token);
-    localStorage.setItem('bloodcare_user', JSON.stringify(sessionUser));
+    persistUserIdentity(sessionUser);
     setUser(sessionUser);
     return data;
   };
@@ -63,13 +89,18 @@ export const AuthProvider = ({ children }) => {
   const updateProfile = async (payload) => {
     const { data } = await api.patch('/auth/me', payload);
     const updatedUser = data.data;
-    localStorage.setItem('bloodcare_user', JSON.stringify(updatedUser));
+    persistUserIdentity(updatedUser);
     setUser(updatedUser);
     return data;
   };
 
+  const updateUser = (updatedUser) => {
+    setUser(updatedUser);
+    persistUserIdentity(updatedUser);
+  };
+
   const value = useMemo(
-    () => ({ user, loading, login, register, logout, updateProfile }),
+    () => ({ user, loading, login, register, logout, updateProfile, updateUser }),
     [user, loading]
   );
 

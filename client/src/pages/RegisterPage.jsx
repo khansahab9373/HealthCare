@@ -19,6 +19,7 @@ const RegisterPage = ({ technicianOnly = false }) => {
     addressCity: "",
   });
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [tests, setTests] = useState([]);
   const [qualifiedTests, setQualifiedTests] = useState([]);
 
@@ -37,7 +38,9 @@ const RegisterPage = ({ technicianOnly = false }) => {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    if (submitting) return;
     setError("");
+    setSubmitting(true);
 
     try {
       await register({
@@ -57,6 +60,8 @@ const RegisterPage = ({ technicianOnly = false }) => {
       setError(
         err.response?.data?.message || "Registration failed. Please try again.",
       );
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -64,7 +69,7 @@ const RegisterPage = ({ technicianOnly = false }) => {
     <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-10">
       <div className="w-full max-w-xl rounded-3xl bg-white p-8 shadow-xl">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-700">
-          BloodCare
+          HealthCare
         </p>
         <h1 className="mt-3 text-3xl font-bold text-slate-900">
           Create your account
@@ -112,6 +117,7 @@ const RegisterPage = ({ technicianOnly = false }) => {
             <input
               type="tel"
               name="phone"
+              pattern="[0-9+() -]{7,20}"
               value={form.phone}
               onChange={handleChange}
               className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 outline-none focus:border-cyan-500"
@@ -125,6 +131,7 @@ const RegisterPage = ({ technicianOnly = false }) => {
             <input
               type="password"
               name="password"
+              minLength={8}
               value={form.password}
               onChange={handleChange}
               className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 outline-none focus:border-cyan-500"
@@ -241,9 +248,10 @@ const RegisterPage = ({ technicianOnly = false }) => {
           )}
           <button
             type="submit"
+            disabled={submitting}
             className="md:col-span-2 w-full rounded-xl bg-cyan-700 px-4 py-3 font-semibold text-white"
           >
-            {technicianOnly ? "Submit technician application" : "Register"}
+            {submitting ? "Creating account..." : technicianOnly ? "Submit technician application" : "Register"}
           </button>
         </form>
 

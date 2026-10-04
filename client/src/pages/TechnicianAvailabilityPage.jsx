@@ -29,8 +29,15 @@ const TechnicianAvailabilityPage = () => {
   });
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [reloadCount, setReloadCount] = useState(0);
 
   const loadAvailability = async () => {
+    setLoading(true);
+    setLoadFailed(false);
+    setError("");
     try {
       const { data } = await api.get("/users/me/availability");
       const saved = data.data;
@@ -47,13 +54,16 @@ const TechnicianAvailabilityPage = () => {
         ),
       );
     } catch (err) {
+      setLoadFailed(true);
       setError(err.response?.data?.message || "Unable to load availability.");
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
     loadAvailability();
-  }, []);
+  }, [reloadCount]);
 
   const updateDay = (index, field, value) =>
     setAvailability((current) =>
@@ -63,7 +73,9 @@ const TechnicianAvailabilityPage = () => {
     );
   const saveAvailability = async (event) => {
     event.preventDefault();
+    if (loading || loadFailed || saving) return;
     setError("");
+    setSaving(true);
     try {
       await api.put("/users/me/availability", {
         availability: availability
@@ -77,6 +89,8 @@ const TechnicianAvailabilityPage = () => {
       setMessage("Weekly availability saved.");
     } catch (err) {
       setError(err.response?.data?.message || "Unable to save availability.");
+    } finally {
+      setSaving(false);
     }
   };
   const addBlock = async (event) => {
@@ -137,6 +151,8 @@ const TechnicianAvailabilityPage = () => {
           <h2 className="text-xl font-bold text-slate-900">
             Weekly working hours
           </h2>
+          {loading && <p className="mt-3 text-slate-600" role="status">Loading saved hours...</p>}
+          {loadFailed && <p className="mt-3 text-rose-700" role="alert">Saved hours could not be loaded. Saving is disabled to protect your existing schedule.</p>}
           <div className="mt-4 space-y-3">
             {availability.map((item, index) => (
               <div
@@ -146,7 +162,8 @@ const TechnicianAvailabilityPage = () => {
                 <span className="font-semibold text-slate-800">{item.day}</span>
                 <input
                   type="time"
-                  disabled={item.off}
+                  aria-label={`${item.day} start time`}
+                  disabled={item.off || loading || loadFailed}
                   value={item.startTime}
                   onChange={(event) =>
                     updateDay(index, "startTime", event.target.value)
@@ -155,7 +172,8 @@ const TechnicianAvailabilityPage = () => {
                 />
                 <input
                   type="time"
-                  disabled={item.off}
+                  aria-label={`${item.day} end time`}
+                  disabled={item.off || loading || loadFailed}
                   value={item.endTime}
                   onChange={(event) =>
                     updateDay(index, "endTime", event.target.value)
@@ -165,7 +183,9 @@ const TechnicianAvailabilityPage = () => {
                 <label className="flex items-center gap-2 text-sm text-slate-600">
                   <input
                     type="checkbox"
+                    aria-label={`${item.day} is a day off`}
                     checked={item.off}
+                    disabled={loading || loadFailed}
                     onChange={(event) =>
                       updateDay(index, "off", event.target.checked)
                     }
@@ -177,9 +197,10 @@ const TechnicianAvailabilityPage = () => {
           </div>
           <button
             type="submit"
+            disabled={loading || loadFailed || saving}
             className="mt-5 rounded-xl bg-cyan-700 px-5 py-3 font-semibold text-white"
           >
-            Save hours
+            {saving ? "Saving..." : "Save hours"}
           </button>
         </form>
         <form
@@ -260,6 +281,11 @@ const TechnicianAvailabilityPage = () => {
         </form>
         {message && <p className="mt-4 text-emerald-700">{message}</p>}
         {error && <p className="mt-4 text-rose-700">{error}</p>}
+        {loadFailed && (
+          <button type="button" onClick={() => setReloadCount((count) => count + 1)} className="mt-2 rounded-lg border border-rose-300 px-4 py-2 font-semibold text-rose-800">
+            Retry loading availability
+          </button>
+        )}
       </div>
     </main>
   );

@@ -15,18 +15,23 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    window.dispatchEvent(
-      new CustomEvent("bloodcare:toast", {
-        detail: {
-          type: "error",
-          message: error.response?.data?.message || "Something went wrong.",
-        },
-      }),
-    );
-    if (error.response?.status === 401) {
+    const isLoginRequest = error.config?.url?.replace(/\/$/, "").endsWith("/auth/login");
+    if (!(isLoginRequest && error.response?.status === 401)) {
+      window.dispatchEvent(
+        new CustomEvent("bloodcare:toast", {
+          detail: {
+            type: "error",
+            message: error.response?.data?.message || "Something went wrong.",
+          },
+        }),
+      );
+    }
+    if (error.response?.status === 401 && !isLoginRequest) {
       localStorage.removeItem("bloodcare_token");
       localStorage.removeItem("bloodcare_user");
-      window.location.href = "/login";
+      if (window.location.pathname !== "/login") {
+        window.location.href = "/login";
+      }
     }
     return Promise.reject(error);
   },

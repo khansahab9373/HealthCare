@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 
 const linksByRole = {
@@ -27,13 +27,36 @@ const linksByRole = {
 
 const MobileNavigation = () => {
   const { user, logout } = useAuth();
+  const location = useLocation();
   const [open, setOpen] = useState(false);
-  if (!user) return null;
+  const triggerRef = useRef(null);
+  const closeRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    closeRef.current?.focus();
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [open]);
+
+  if (
+    !user ||
+    ["/", "/login", "/register", "/register/technician"].includes(
+      location.pathname,
+    )
+  ) return null;
 
   return (
     <>
       <button
         type="button"
+        ref={triggerRef}
         aria-label="Open navigation"
         aria-expanded={open}
         onClick={() => setOpen(true)}
@@ -50,17 +73,22 @@ const MobileNavigation = () => {
         />
       )}
       <aside
+        role="dialog"
+        aria-modal={open ? "true" : undefined}
+        aria-label="HealthCare navigation"
+        aria-hidden={!open}
         className={`mobile-nav-drawer fixed right-0 top-0 z-50 flex h-full w-[min(84vw,20rem)] flex-col bg-white p-5 shadow-2xl ${open ? "is-open" : ""}`}
       >
         <div className="flex items-center justify-between border-b border-slate-200 pb-4">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-700">
-              BloodCare
+              HealthCare
             </p>
             <p className="mt-1 font-semibold text-slate-900">{user.name}</p>
           </div>
           <button
             type="button"
+            ref={closeRef}
             aria-label="Close navigation"
             onClick={() => setOpen(false)}
             className="rounded-lg px-3 py-2 text-xl text-slate-500"
@@ -74,7 +102,8 @@ const MobileNavigation = () => {
               key={href}
               to={href}
               onClick={() => setOpen(false)}
-              className="block rounded-xl px-3 py-3 font-semibold text-slate-700 hover:bg-cyan-50 hover:text-cyan-800"
+              aria-current={location.pathname === href ? "page" : undefined}
+              className={`block rounded-xl px-3 py-3 font-semibold hover:bg-cyan-50 hover:text-cyan-800 ${location.pathname === href ? "bg-cyan-50 text-cyan-900" : "text-slate-700"}`}
             >
               {label}
             </Link>
@@ -82,14 +111,16 @@ const MobileNavigation = () => {
           <Link
             to="/notifications"
             onClick={() => setOpen(false)}
-            className="block rounded-xl px-3 py-3 font-semibold text-slate-700 hover:bg-cyan-50 hover:text-cyan-800"
+            aria-current={location.pathname === "/notifications" ? "page" : undefined}
+            className={`block rounded-xl px-3 py-3 font-semibold hover:bg-cyan-50 hover:text-cyan-800 ${location.pathname === "/notifications" ? "bg-cyan-50 text-cyan-900" : "text-slate-700"}`}
           >
             Notifications
           </Link>
           <Link
             to="/profile"
             onClick={() => setOpen(false)}
-            className="block rounded-xl px-3 py-3 font-semibold text-slate-700 hover:bg-cyan-50 hover:text-cyan-800"
+            aria-current={location.pathname === "/profile" ? "page" : undefined}
+            className={`block rounded-xl px-3 py-3 font-semibold hover:bg-cyan-50 hover:text-cyan-800 ${location.pathname === "/profile" ? "bg-cyan-50 text-cyan-900" : "text-slate-700"}`}
           >
             Profile
           </Link>

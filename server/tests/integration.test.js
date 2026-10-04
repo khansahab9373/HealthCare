@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
-import { after, before, test } from "node:test";
+import { after, before, mock, test } from "node:test";
+import { PassThrough } from "node:stream";
+import { v2 as cloudinary } from "cloudinary";
 import mongoose from "mongoose";
 import request from "supertest";
 import User from "../src/models/User.js";
@@ -14,7 +16,9 @@ const nextMonday = () => {
   const date = new Date();
   const daysUntilMonday = (8 - date.getDay()) % 7 || 7;
   date.setDate(date.getDate() + daysUntilMonday);
-  return date.toISOString().slice(0, 10);
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
 };
 const date = nextMonday();
 const testMongoUri = "mongodb://127.0.0.1:27017/bloodcare_test";
@@ -29,6 +33,7 @@ let adminToken;
 let technicianToken;
 let patientToken;
 let otherPatientToken;
+const cloudinaryUploads = [];
 
 const auth = (token) => ({ Authorization: `Bearer ${token}` });
 const login = async (email) => {
@@ -43,6 +48,34 @@ before(async () => {
   // Set these before loading app.js so dotenv cannot point the test at server/.env.
   process.env.MONGO_URI = testMongoUri;
   process.env.JWT_SECRET = "integration-test-secret";
+  process.env.CLOUDINARY_CLOUD_NAME = "bloodcare-test";
+  process.env.CLOUDINARY_API_KEY = "test-api-key";
+  process.env.CLOUDINARY_API_SECRET = "test-api-secret";
+  mock.method(cloudinary.uploader, "upload_stream", (options, callback) => {
+    const stream = new PassThrough();
+    const chunks = [];
+    stream.on("data", (chunk) => chunks.push(chunk));
+    stream.on("finish", () => {
+      cloudinaryUploads.push({ options, bytes: Buffer.concat(chunks) });
+      callback(null, {
+        secure_url: `https://res.cloudinary.test/${options.resource_type}/${options.type}/${options.folder}/${options.public_id}.${options.format}`,
+        public_id: `${options.folder}/${options.public_id}`,
+        format: options.format,
+        resource_type: options.resource_type,
+        bytes: Buffer.concat(chunks).length,
+      });
+    });
+    return stream;
+  });
+  mock.method(cloudinary.utils, "private_download_url", (publicId, format) =>
+    `https://api.cloudinary.test/download/${encodeURIComponent(publicId)}.${format}`,
+  );
+  mock.method(globalThis, "fetch", async () =>
+    new Response(Buffer.from("%PDF-1.4 Cloudinary test document"), {
+      status: 200,
+      headers: { "content-type": "application/pdf" },
+    }),
+  );
   ({ default: vercelHandler } = await import("../api/index.js"));
   ({ default: app } = await import("../src/app.js"));
   await mongoose.connect(testMongoUri);
@@ -108,6 +141,7 @@ before(async () => {
 after(async () => {
   await mongoose.connection.dropDatabase();
   await mongoose.disconnect();
+  mock.restoreAll();
 });
 
 test("API health endpoint", async () => {
@@ -274,6 +308,31 @@ test("booking, duplicate protection, cancellation, and rescheduling", async () =
   assert.equal(cancelledAgain.status, 400);
 });
 
+test("verification documents use Cloudinary and remain viewable by admins", async () => {
+  const response = await request(app)
+    .post("/api/users/me/verification-documents")
+    .set(auth(technicianToken))
+    .field("name", "QA technician certificate")
+    .attach("document", Buffer.from("%PDF-1.4 QA certificate"), {
+      filename: "qa-certificate.pdf",
+      contentType: "application/pdf",
+    });
+
+  assert.equal(response.status, 201);
+  const document = response.body.data.verificationDocuments.at(-1);
+  assert.match(document.secureUrl, /^https:\/\/res\.cloudinary\.test\//);
+  assert.match(document.publicId, /^healthcare\/verification\//);
+  assert.equal(document.resourceType, "raw");
+  assert.ok(cloudinaryUploads.some(({ options }) => options.folder === "healthcare/verification"));
+
+  const viewed = await request(app)
+    .get(`/api/users/technicians/${technician._id}/documents/${document._id}`)
+    .set(auth(adminToken));
+  assert.equal(viewed.status, 200);
+  assert.equal(viewed.headers["content-type"], "application/pdf");
+  assert.match(viewed.body.toString(), /Cloudinary test document/);
+});
+
 let report;
 
 test("sample lifecycle, report review, patient ownership, PDF, notifications, and audit", async () => {
@@ -333,6 +392,10 @@ test("sample lifecycle, report review, patient ownership, PDF, notifications, an
     .patch(`/api/reports/${report._id}/approve`)
     .set(auth(adminToken));
   assert.equal(approved.status, 200);
+  const storedReport = await Report.findById(report._id);
+  assert.match(storedReport.pdfSecureUrl, /^https:\/\/res\.cloudinary\.test\//);
+  assert.match(storedReport.pdfPublicId, /^healthcare\/reports\//);
+  assert.ok(cloudinaryUploads.some(({ options }) => options.folder === "healthcare/reports"));
   const published = await request(app)
     .patch(`/api/reports/${report._id}/publish`)
     .set(auth(adminToken));

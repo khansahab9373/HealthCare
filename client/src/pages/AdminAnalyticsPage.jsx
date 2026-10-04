@@ -5,18 +5,28 @@ import api from "../services/api.js";
 const AdminAnalyticsPage = () => {
   const [analytics, setAnalytics] = useState(null);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [reloadCount, setReloadCount] = useState(0);
 
   useEffect(() => {
+    let active = true;
     const loadAnalytics = async () => {
+      setLoading(true);
+      setError("");
       try {
         const { data } = await api.get("/analytics/admin");
-        setAnalytics(data.data);
+        if (active) setAnalytics(data.data);
       } catch (err) {
-        setError(err.response?.data?.message || "Unable to load analytics.");
+        if (active) setError(err.response?.data?.message || "Unable to load analytics.");
+      } finally {
+        if (active) setLoading(false);
       }
     };
     loadAnalytics();
-  }, []);
+    return () => {
+      active = false;
+    };
+  }, [reloadCount]);
 
   const maxCount = Math.max(
     ...(analytics?.testPopularity || []).map((item) => item.count),
@@ -42,15 +52,17 @@ const AdminAnalyticsPage = () => {
             Dashboard
           </Link>
         </header>
-        {error && (
-          <p className="mb-4 rounded-xl bg-rose-50 p-4 text-rose-700">
-            {error}
-          </p>
-        )}
-        {!analytics ? (
-          <div className="rounded-2xl bg-white p-7 shadow-sm">
-            Loading analytics...
+        {loading ? (
+          <div className="rounded-2xl bg-white p-7 shadow-sm" role="status">Loading analytics...</div>
+        ) : error ? (
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-rose-800" role="alert">
+            <p>{error}</p>
+            <button onClick={() => setReloadCount((count) => count + 1)} className="mt-3 rounded-lg border border-rose-300 px-4 py-2 font-semibold">Retry</button>
           </div>
+        ) : !analytics ? (
+          <p className="mb-4 rounded-xl bg-rose-50 p-4 text-rose-700">
+            Analytics data is unavailable.
+          </p>
         ) : (
           <div className="grid gap-6 lg:grid-cols-2">
             <section className="rounded-2xl bg-white p-5 shadow-sm">

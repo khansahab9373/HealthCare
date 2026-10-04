@@ -5,18 +5,28 @@ import api from "../services/api.js";
 const AdminAuditPage = () => {
   const [logs, setLogs] = useState([]);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [reloadCount, setReloadCount] = useState(0);
 
   useEffect(() => {
+    let active = true;
     const loadLogs = async () => {
+      setLoading(true);
+      setError("");
       try {
         const { data } = await api.get("/audit/admin");
-        setLogs(data.data || []);
+        if (active) setLogs(data.data || []);
       } catch (err) {
-        setError(err.response?.data?.message || "Unable to load audit logs.");
+        if (active) setError(err.response?.data?.message || "Unable to load audit logs.");
+      } finally {
+        if (active) setLoading(false);
       }
     };
     loadLogs();
-  }, []);
+    return () => {
+      active = false;
+    };
+  }, [reloadCount]);
 
   return (
     <main className="min-h-screen bg-slate-100 p-6">
@@ -37,12 +47,14 @@ const AdminAuditPage = () => {
             Dashboard
           </Link>
         </header>
-        {error && (
-          <p className="mb-4 rounded-xl bg-rose-50 p-4 text-rose-700">
-            {error}
-          </p>
-        )}
-        {logs.length === 0 ? (
+        {loading ? (
+          <div className="rounded-2xl bg-white p-7 text-slate-700 shadow-sm" role="status">Loading audit events...</div>
+        ) : error ? (
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-800" role="alert">
+            <p>{error}</p>
+            <button onClick={() => setReloadCount((count) => count + 1)} className="mt-3 rounded-lg border border-rose-300 px-4 py-2 font-semibold">Retry</button>
+          </div>
+        ) : logs.length === 0 ? (
           <div className="rounded-2xl bg-white p-7 text-slate-700 shadow-sm">
             No audit events recorded yet.
           </div>

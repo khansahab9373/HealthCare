@@ -6,22 +6,30 @@ const AdminReportsPage = () => {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [retryCount, setRetryCount] = useState(0);
+  const [workingId, setWorkingId] = useState(null);
 
   useEffect(() => {
+    let active = true;
     const fetchReports = async () => {
+      setLoading(true);
+      setError("");
       try {
         const { data } = await api.get("/reports/admin");
-        setReports(data.data || []);
+        if (active) setReports(data.data || []);
       } catch (err) {
-        setError(err.response?.data?.message || "Unable to load reports.");
+        if (active) setError(err.response?.data?.message || "Unable to load reports.");
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
     fetchReports();
-  }, []);
+    return () => { active = false; };
+  }, [retryCount]);
 
   const approveReport = async (reportId) => {
+    if (workingId) return;
+    setWorkingId(reportId);
     setError("");
     try {
       const { data } = await api.patch(`/reports/${reportId}/approve`);
@@ -30,12 +38,22 @@ const AdminReportsPage = () => {
       );
     } catch (err) {
       setError(err.response?.data?.message || "Unable to approve report.");
+    } finally {
+      setWorkingId(null);
     }
   };
 
   const reviewReport = async (reportId, action) => {
-    const reason = window.prompt("Reason for this review action:") || "";
-    if (!reason.trim() && action !== "review") return;
+    const promptedReason = window.prompt("Reason for this review action:");
+    if (promptedReason === null) return;
+    const reason = promptedReason.trim();
+    if (!reason && action !== "review") {
+      setError("A reason is required for this review action.");
+      return;
+    }
+    if (workingId) return;
+    setWorkingId(reportId);
+    setError("");
     const endpoint =
       action === "review"
         ? "review"
@@ -51,10 +69,15 @@ const AdminReportsPage = () => {
       );
     } catch (err) {
       setError(err.response?.data?.message || "Unable to review report.");
+    } finally {
+      setWorkingId(null);
     }
   };
 
   const publishReport = async (reportId) => {
+    if (workingId) return;
+    setWorkingId(reportId);
+    setError("");
     try {
       const { data } = await api.patch(`/reports/${reportId}/publish`);
       setReports((current) =>
@@ -62,6 +85,8 @@ const AdminReportsPage = () => {
       );
     } catch (err) {
       setError(err.response?.data?.message || "Unable to publish report.");
+    } finally {
+      setWorkingId(null);
     }
   };
 
@@ -84,14 +109,14 @@ const AdminReportsPage = () => {
             Dashboard
           </Link>
         </header>
-        {error && (
-          <p className="mb-4 rounded-xl bg-rose-50 p-4 text-rose-700">
-            {error}
-          </p>
-        )}
         {loading ? (
           <div className="rounded-2xl bg-white p-7 shadow-sm">
             Loading reports...
+          </div>
+        ) : error ? (
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-rose-800" role="alert">
+            <p>{error}</p>
+            <button onClick={() => setRetryCount((count) => count + 1)} className="mt-3 rounded-lg border border-rose-300 px-4 py-2 font-semibold">Retry</button>
           </div>
         ) : reports.length === 0 ? (
           <div className="rounded-2xl bg-white p-7 text-slate-700 shadow-sm">
@@ -130,6 +155,7 @@ const AdminReportsPage = () => {
                       <>
                         <button
                           type="button"
+                          disabled={workingId === report._id}
                           onClick={() => reviewReport(report._id, "review")}
                           className="rounded-full border border-cyan-200 px-3 py-2 text-sm text-cyan-700"
                         >
@@ -137,6 +163,7 @@ const AdminReportsPage = () => {
                         </button>
                         <button
                           type="button"
+                          disabled={workingId === report._id}
                           onClick={() => reviewReport(report._id, "correction")}
                           className="rounded-full border border-amber-200 px-3 py-2 text-sm text-amber-700"
                         >
@@ -144,6 +171,7 @@ const AdminReportsPage = () => {
                         </button>
                         <button
                           type="button"
+                          disabled={workingId === report._id}
                           onClick={() => reviewReport(report._id, "reject")}
                           className="rounded-full border border-rose-200 px-3 py-2 text-sm text-rose-700"
                         >
@@ -151,6 +179,7 @@ const AdminReportsPage = () => {
                         </button>
                         <button
                           type="button"
+                          disabled={workingId === report._id}
                           onClick={() => approveReport(report._id)}
                           className="rounded-full bg-emerald-600 px-4 py-2 font-medium text-white"
                         >
@@ -161,6 +190,7 @@ const AdminReportsPage = () => {
                     {report.status === "APPROVED" && (
                       <button
                         type="button"
+                        disabled={workingId === report._id}
                         onClick={() => publishReport(report._id)}
                         className="rounded-full bg-cyan-700 px-4 py-2 font-medium text-white"
                       >

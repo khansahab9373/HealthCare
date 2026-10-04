@@ -25,20 +25,26 @@ const AdminTestsPage = () => {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [editingTestId, setEditingTestId] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [togglingTestId, setTogglingTestId] = useState(null);
 
   useEffect(() => {
+    let active = true;
     const loadTests = async () => {
+      setLoading(true);
+      setError("");
       try {
         const { data } = await api.get("/tests/admin");
-        setTests(data.data || []);
+        if (active) setTests(data.data || []);
       } catch (err) {
-        setError(err.response?.data?.message || "Unable to load tests.");
+        if (active) setError(err.response?.data?.message || "Unable to load tests.");
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
     loadTests();
-  }, []);
+    return () => { active = false; };
+  }, [retryCount]);
 
   const updateField = (event) => {
     const { name, value, type, checked } = event.target;
@@ -79,6 +85,8 @@ const AdminTestsPage = () => {
   };
 
   const toggleTest = async (test) => {
+    if (togglingTestId) return;
+    setTogglingTestId(test._id);
     try {
       const { data } = await api.patch(`/tests/${test._id}/status`, {
         active: !test.active,
@@ -88,6 +96,8 @@ const AdminTestsPage = () => {
       );
     } catch (err) {
       setError(err.response?.data?.message || "Unable to update test status.");
+    } finally {
+      setTogglingTestId(null);
     }
   };
 
@@ -130,6 +140,13 @@ const AdminTestsPage = () => {
               <div className="rounded-2xl bg-white p-7 shadow-sm">
                 Loading catalog...
               </div>
+            ) : error && tests.length === 0 ? (
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-rose-800" role="alert">
+                <p>{error}</p>
+                <button onClick={() => setRetryCount((count) => count + 1)} className="mt-3 rounded-lg border border-rose-300 px-4 py-2 font-semibold">Retry</button>
+              </div>
+            ) : tests.length === 0 ? (
+              <div className="rounded-2xl bg-white p-7 text-slate-700 shadow-sm">No tests are in the catalog yet.</div>
             ) : (
               tests.map((test) => (
                 <article
@@ -161,6 +178,7 @@ const AdminTestsPage = () => {
                   <div className="mt-4 flex gap-2">
                     <button
                       type="button"
+                      disabled={Boolean(togglingTestId)}
                       onClick={() => editTest(test)}
                       className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-cyan-700"
                     >
@@ -171,7 +189,7 @@ const AdminTestsPage = () => {
                       onClick={() => toggleTest(test)}
                       className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700"
                     >
-                      {test.active ? "Deactivate" : "Activate"}
+                      {togglingTestId === test._id ? "Updating..." : test.active ? "Deactivate" : "Activate"}
                     </button>
                   </div>
                 </article>

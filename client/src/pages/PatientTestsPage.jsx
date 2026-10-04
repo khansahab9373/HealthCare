@@ -12,6 +12,7 @@ const PatientTestsPage = () => {
   const [collectionType, setCollectionType] = useState("LAB_VISIT");
   const [address, setAddress] = useState({ street: "", city: "", pincode: "" });
   const [loading, setLoading] = useState(true);
+  const [booking, setBooking] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const selectedTest = tests.find((test) => test._id === selectedTestId);
@@ -19,30 +20,42 @@ const PatientTestsPage = () => {
   useEffect(() => {
     if (!selectedTestId || !date) {
       setSlots([]);
+      setSelectedSlotKey("");
       return;
     }
+    let active = true;
     const fetchSlots = async () => {
+      setSlots([]);
+      setSelectedSlotKey("");
       setSlotsLoading(true);
+      setError("");
       try {
         const { data } = await api.get(
           `/appointments/slots?testId=${selectedTestId}&date=${date}`,
         );
-        setSlots(data.data || []);
-        setSelectedSlotKey(
-          data.data?.[0]
+        if (active) {
+          setSlots(data.data || []);
+          setSelectedSlotKey(
+            data.data?.[0]
             ? `${data.data[0].technicianId}-${data.data[0].startTime}`
             : "",
-        );
+          );
+        }
       } catch (err) {
-        setSlots([]);
-        setError(
-          err.response?.data?.message || "Unable to load available slots.",
-        );
+        if (active) {
+          setSlots([]);
+          setError(
+            err.response?.data?.message || "Unable to load available slots.",
+          );
+        }
       } finally {
-        setSlotsLoading(false);
+        if (active) setSlotsLoading(false);
       }
     };
     fetchSlots();
+    return () => {
+      active = false;
+    };
   }, [selectedTestId, date]);
 
   useEffect(() => {
@@ -65,6 +78,7 @@ const PatientTestsPage = () => {
 
   const handleBooking = async (event) => {
     event.preventDefault();
+    if (booking || slotsLoading) return;
     setError("");
     setMessage("");
 
@@ -76,6 +90,7 @@ const PatientTestsPage = () => {
       return;
     }
 
+    setBooking(true);
     try {
       const payload = {
         testId: selectedTestId,
@@ -97,6 +112,8 @@ const PatientTestsPage = () => {
       setError(
         err.response?.data?.message || "Could not book this appointment.",
       );
+    } finally {
+      setBooking(false);
     }
   };
 
@@ -146,6 +163,10 @@ const PatientTestsPage = () => {
           <div className="rounded-2xl bg-white p-8 text-slate-700 shadow-sm">
             Loading tests...
           </div>
+        ) : error && tests.length === 0 ? (
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-7 text-rose-800" role="alert">{error}</div>
+        ) : tests.length === 0 ? (
+          <div className="rounded-2xl bg-white p-7 text-slate-700 shadow-sm">No blood tests are currently available.</div>
         ) : (
           <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
             <section className="space-y-4">
@@ -188,10 +209,11 @@ const PatientTestsPage = () => {
               <h2 className="text-2xl font-bold">Book appointment</h2>
               <form className="mt-5 space-y-4" onSubmit={handleBooking}>
                 <div>
-                  <label className="mb-2 block text-sm text-slate-300">
+                  <label htmlFor="booking-test" className="mb-2 block text-sm text-slate-300">
                     Test
                   </label>
                   <select
+                    id="booking-test"
                     value={selectedTestId}
                     onChange={(e) => handleTestChange(e.target.value)}
                     className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-3 text-white outline-none"
@@ -204,10 +226,11 @@ const PatientTestsPage = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="mb-2 block text-sm text-slate-300">
+                  <label htmlFor="booking-date" className="mb-2 block text-sm text-slate-300">
                     Date
                   </label>
                   <input
+                    id="booking-date"
                     type="date"
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
@@ -241,6 +264,7 @@ const PatientTestsPage = () => {
                             )
                           }
                           className={`rounded-lg border px-3 py-2 text-sm ${selectedSlotKey === `${slot.technicianId}-${slot.startTime}` ? "border-cyan-400 bg-cyan-500 text-slate-900" : "border-slate-700 bg-slate-800 text-white"}`}
+                          aria-pressed={selectedSlotKey === `${slot.technicianId}-${slot.startTime}`}
                         >
                           {slot.startTime} · {slot.technicianName}
                         </button>
@@ -249,10 +273,11 @@ const PatientTestsPage = () => {
                   </div>
                 </div>
                 <div>
-                  <label className="mb-2 block text-sm text-slate-300">
+                  <label htmlFor="collection-type" className="mb-2 block text-sm text-slate-300">
                     Collection type
                   </label>
                   <select
+                    id="collection-type"
                     value={collectionType}
                     onChange={(e) => setCollectionType(e.target.value)}
                     className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-3 text-white outline-none"
@@ -331,9 +356,10 @@ const PatientTestsPage = () => {
                 )}
                 <button
                   type="submit"
+                  disabled={booking || slotsLoading || !selectedSlotKey}
                   className="w-full rounded-xl bg-cyan-500 px-4 py-3 font-semibold text-slate-900"
                 >
-                  Book slot
+                  {booking ? "Booking..." : "Book slot"}
                 </button>
               </form>
             </aside>

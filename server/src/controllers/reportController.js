@@ -2,9 +2,10 @@ import Appointment from "../models/Appointment.js";
 import Report from "../models/Report.js";
 import { sendSuccess, sendError } from "../utils/apiResponse.js";
 import { createNotification } from "../services/notificationService.js";
-import PDFDocument from "pdfkit";
 import { recordAudit } from "../services/auditService.js";
 import mongoose from "mongoose";
+import { deleteAsset, downloadBuffer } from "../services/cloudinaryStorage.js";
+import { uploadReportPdf } from "../services/reportPdfService.js";
 
 export const submitReport = async (req, res) => {
   try {
@@ -144,11 +145,17 @@ export const getAdminReports = async (req, res) => {
 };
 
 export const approveReport = async (req, res) => {
+  let uploadedAsset;
+  let reportSaved = false;
   try {
     const report = await Report.findOne({
       _id: req.params.id,
       status: { $in: ["SUBMITTED", "UNDER_REVIEW"] },
-    });
+    })
+      .populate("patient", "name email")
+      .populate("technician", "name")
+      .populate("test", "name code")
+      .populate("appointment", "sampleId");
     if (!report) {
       return sendError(res, "Only a submitted report can be approved.", 400);
     }
@@ -170,6 +177,11 @@ export const approveReport = async (req, res) => {
     report.approvedAt = new Date();
     report.reviewedAt = new Date();
     report.approvedBy = req.user._id;
+    uploadedAsset = await uploadReportPdf(report);
+    report.pdfSecureUrl = uploadedAsset.secure_url;
+    report.pdfPublicId = uploadedAsset.public_id;
+    report.pdfFormat = uploadedAsset.format;
+    report.pdfResourceType = uploadedAsset.resourceType;
     appointment.status = "REPORT_APPROVED";
     appointment.reportStatus = "APPROVED";
     appointment.statusHistory.push({
@@ -177,6 +189,7 @@ export const approveReport = async (req, res) => {
       changedBy: req.user._id,
     });
     await report.save();
+    reportSaved = true;
     await appointment.save();
     await createNotification({
       recipient: report.patient,
@@ -202,6 +215,16 @@ export const approveReport = async (req, res) => {
 
     return sendSuccess(res, populatedReport, "Report approved successfully.");
   } catch (error) {
+    if (uploadedAsset?.public_id && !reportSaved) {
+      try {
+        await deleteAsset({
+          publicId: uploadedAsset.public_id,
+          resourceType: uploadedAsset.resourceType || "raw",
+        });
+      } catch {
+        // Keep the approval error as the primary response.
+      }
+    }
     return sendError(res, error.message || "Unable to approve report.", 500);
   }
 };
@@ -366,54 +389,34 @@ export const downloadReport = async (req, res) => {
       return sendError(res, "Approved report not found.", 404);
     }
 
-    const document = new PDFDocument({ margin: 50 });
+    let pdfBuffer;
+    if (report.pdfPublicId && report.pdfSecureUrl) {
+      ({ buffer: pdfBuffer } = await downloadBuffer({
+        publicId: report.pdfPublicId,
+        format: report.pdfFormat || "pdf",
+        resourceType: report.pdfResourceType || "raw",
+      }));
+    } else {
+      const uploadedAsset = await uploadReportPdf(report);
+      report.pdfSecureUrl = uploadedAsset.secure_url;
+      report.pdfPublicId = uploadedAsset.public_id;
+      report.pdfFormat = uploadedAsset.format;
+      report.pdfResourceType = uploadedAsset.resourceType;
+      await report.save();
+      ({ buffer: pdfBuffer } = await downloadBuffer({
+        publicId: report.pdfPublicId,
+        format: report.pdfFormat,
+        resourceType: report.pdfResourceType,
+      }));
+    }
+
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename="bloodcare-report-${report.test.code}.pdf"`,
+      `attachment; filename="healthcare-report-${report.test.code}.pdf"`,
     );
-    document.pipe(res);
-    document
-      .fontSize(22)
-      .fillColor("#0d5c63")
-      .text("BloodCare", { continued: false });
-    document
-      .moveDown()
-      .fontSize(16)
-      .fillColor("#123b40")
-      .text("Diagnostic Report");
-    document
-      .moveDown()
-      .fontSize(10)
-      .fillColor("#555")
-      .text(`Report ID: ${report._id}`)
-      .text(`Approval status: ${report.status}`)
-      .text(
-        `Approved by: ${report.approvedBy?.name || "BloodCare administrator"}`,
-      );
-    document
-      .moveDown()
-      .fontSize(11)
-      .fillColor("#333")
-      .text(`Patient: ${report.patient.name}`);
-    document.text(`Test: ${report.test.name} (${report.test.code})`);
-    document.text(`Technician: ${report.technician.name}`);
-    document.text(
-      `Sample ID: ${report.appointment?.sampleId || "Not available"}`,
-    );
-    document.text(`Report date: ${report.createdAt.toLocaleDateString()}`);
-    document.text(
-      `Approved: ${report.approvedAt?.toLocaleDateString() || "Approved"}`,
-    );
-    document.moveDown();
-    report.results.forEach((result) => {
-      document.text(
-        `${result.marker}: ${result.value} ${result.unit || ""} | ${result.flag} | Reference: ${result.referenceRange || "N/A"} | Remarks: ${result.remarks || "N/A"}`,
-      );
-    });
-    document.moveDown().text(`Interpretation: ${report.interpretation}`);
-    if (report.remarks) document.text(`Remarks: ${report.remarks}`);
-    document.end();
+    res.setHeader("Content-Length", pdfBuffer.length);
+    return res.send(pdfBuffer);
   } catch (error) {
     return sendError(
       res,

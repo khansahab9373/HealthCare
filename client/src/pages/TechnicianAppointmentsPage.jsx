@@ -14,8 +14,12 @@ const TechnicianAppointmentsPage = () => {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [retryCount, setRetryCount] = useState(0);
+  const [updatingAppointmentId, setUpdatingAppointmentId] = useState(null);
 
   const fetchAppointments = async () => {
+    setLoading(true);
+    setError("");
     try {
       const { data } = await api.get("/appointments/technician");
       setAppointments(data.data || []);
@@ -30,9 +34,11 @@ const TechnicianAppointmentsPage = () => {
 
   useEffect(() => {
     fetchAppointments();
-  }, []);
+  }, [retryCount]);
 
   const updateStatus = async (appointmentId, status) => {
+    if (updatingAppointmentId) return;
+    setUpdatingAppointmentId(appointmentId);
     setError("");
     try {
       const { data } = await api.patch(
@@ -48,6 +54,8 @@ const TechnicianAppointmentsPage = () => {
       setError(
         err.response?.data?.message || "Unable to update appointment status.",
       );
+    } finally {
+      setUpdatingAppointmentId(null);
     }
   };
 
@@ -79,6 +87,11 @@ const TechnicianAppointmentsPage = () => {
         {loading ? (
           <div className="rounded-2xl bg-white p-7 text-slate-700 shadow-sm">
             Loading assignments...
+          </div>
+        ) : error && appointments.length === 0 ? (
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-rose-800" role="alert">
+            <p>{error}</p>
+            <button onClick={() => setRetryCount((count) => count + 1)} className="mt-3 rounded-lg border border-rose-300 px-4 py-2 font-semibold">Retry</button>
           </div>
         ) : appointments.length === 0 ? (
           <div className="rounded-2xl bg-white p-7 text-slate-700 shadow-sm">
@@ -139,6 +152,7 @@ const TechnicianAppointmentsPage = () => {
                   </label>
                   <select
                     id={`status-${appointment._id}`}
+                    disabled={updatingAppointmentId === appointment._id || !(nextStatusOptions[appointment.status] || []).length}
                     value={appointment.status}
                     onChange={(event) =>
                       updateStatus(appointment._id, event.target.value)

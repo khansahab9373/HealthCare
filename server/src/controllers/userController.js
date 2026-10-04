@@ -4,6 +4,8 @@ import { createNotification } from "../services/notificationService.js";
 import { recordAudit } from "../services/auditService.js";
 import fs from "fs";
 import mongoose from "mongoose";
+import { randomUUID } from "node:crypto";
+import { deleteAsset, downloadBuffer, uploadBuffer } from "../services/cloudinaryStorage.js";
 
 export const getTechnicians = async (req, res) => {
   try {
@@ -125,14 +127,29 @@ export const getMyAvailability = async (req, res) => {
 };
 
 export const uploadVerificationDocument = async (req, res) => {
-  if (!req.file)
+  if (!req.file?.buffer)
     return sendError(res, "A verification document is required.", 400);
   const name = String(req.body.name || req.file.originalname).trim();
   if (!name) {
-    fs.unlink(req.file.path, () => {});
     return sendError(res, "A document name is required.", 400);
   }
+  let uploadedAsset;
   try {
+    const formatByMimeType = {
+      "application/pdf": "pdf",
+      "image/jpeg": "jpg",
+      "image/png": "png",
+      "image/webp": "webp",
+    };
+    const format = formatByMimeType[req.file.mimetype];
+    const resourceType =
+      req.file.mimetype === "application/pdf" ? "raw" : "image";
+    uploadedAsset = await uploadBuffer(req.file.buffer, {
+      folder: "healthcare/verification",
+      publicId: `technician-${req.user._id}-${randomUUID()}`,
+      format,
+      resourceType,
+    });
     const technician = await User.findOneAndUpdate(
       { _id: req.user._id, role: "TECHNICIAN" },
       {
@@ -140,8 +157,11 @@ export const uploadVerificationDocument = async (req, res) => {
           verificationDocuments: {
             name,
             originalName: req.file.originalname,
-            storageName: req.file.filename,
-            path: req.file.path,
+            storageName: uploadedAsset.public_id,
+            secureUrl: uploadedAsset.secure_url,
+            publicId: uploadedAsset.public_id,
+            format: uploadedAsset.format || format,
+            resourceType,
             mimeType: req.file.mimetype,
             size: req.file.size,
           },
@@ -150,7 +170,10 @@ export const uploadVerificationDocument = async (req, res) => {
       { new: true, runValidators: true },
     ).select("verificationDocuments technicianStatus rejectionReason");
     if (!technician) {
-      fs.unlink(req.file.path, () => {});
+      await deleteAsset({
+        publicId: uploadedAsset.public_id,
+        resourceType,
+      });
       return sendError(res, "Technician account not found.", 404);
     }
     recordAudit({
@@ -163,8 +186,17 @@ export const uploadVerificationDocument = async (req, res) => {
     });
     return sendSuccess(res, technician, "Verification document uploaded.", 201);
   } catch (error) {
-    fs.unlink(req.file.path, () => {});
-    return sendError(res, error.message || "Unable to upload document.", 500);
+    if (uploadedAsset?.public_id) {
+      try {
+        await deleteAsset({
+          publicId: uploadedAsset.public_id,
+          resourceType: uploadedAsset.resource_type || "raw",
+        });
+      } catch {
+        // The primary database/upload error is more useful to return.
+      }
+    }
+    return sendError(res, error.message || "Unable to upload document.", 503);
   }
 };
 
@@ -182,10 +214,34 @@ export const downloadVerificationDocument = async (req, res) => {
     return sendError(res, "Verification document not found.", 404);
   }
   const document = technician.verificationDocuments.id(req.params.documentId);
-  if (!document || !fs.existsSync(document.path)) {
+  if (!document) {
     return sendError(res, "Verification document is unavailable.", 404);
   }
-  return res.download(document.path, document.originalName);
+  if (document.publicId && document.secureUrl) {
+    try {
+      const { buffer, contentType } = await downloadBuffer({
+        publicId: document.publicId,
+        format: document.format || document.originalName.split(".").pop(),
+        resourceType:
+          document.resourceType ||
+          (document.mimeType === "application/pdf" ? "raw" : "image"),
+      });
+      res.setHeader("Content-Type", document.mimeType || contentType);
+      res.attachment(document.originalName);
+      return res.send(buffer);
+    } catch (error) {
+      return sendError(
+        res,
+        error.message || "Verification document is unavailable.",
+        502,
+      );
+    }
+  }
+
+  if (document.path && fs.existsSync(document.path)) {
+    return res.download(document.path, document.originalName);
+  }
+  return sendError(res, "Verification document is unavailable.", 404);
 };
 
 export const updateMyAvailability = async (req, res) => {

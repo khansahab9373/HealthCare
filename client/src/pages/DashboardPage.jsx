@@ -8,10 +8,19 @@ const DashboardPage = () => {
   const [appointments, setAppointments] = useState([]);
   const [reports, setReports] = useState([]);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
+    let active = true;
     const loadDashboardData = async () => {
+      setLoading(true);
+      setError("");
       try {
+        let appointmentData = [];
+        let reportData = [];
+        let notificationCount = 0;
         if (user?.role === "PATIENT") {
           const [appointmentsResponse, reportsResponse, notificationsResponse] =
             await Promise.all([
@@ -19,11 +28,9 @@ const DashboardPage = () => {
               api.get("/reports/my"),
               api.get("/notifications/my"),
             ]);
-          setAppointments(appointmentsResponse.data.data || []);
-          setReports(reportsResponse.data.data || []);
-          setUnreadNotifications(
-            notificationsResponse.data.data.unreadCount || 0,
-          );
+          appointmentData = appointmentsResponse.data.data || [];
+          reportData = reportsResponse.data.data || [];
+          notificationCount = notificationsResponse.data.data.unreadCount || 0;
         }
 
         if (user?.role === "TECHNICIAN") {
@@ -31,10 +38,8 @@ const DashboardPage = () => {
             api.get("/appointments/technician"),
             api.get("/notifications/my"),
           ]);
-          setAppointments(response.data.data || []);
-          setUnreadNotifications(
-            notificationsResponse.data.data.unreadCount || 0,
-          );
+          appointmentData = response.data.data || [];
+          notificationCount = notificationsResponse.data.data.unreadCount || 0;
         }
 
         if (user?.role === "ADMIN") {
@@ -44,20 +49,29 @@ const DashboardPage = () => {
               api.get("/reports/admin"),
               api.get("/notifications/my"),
             ]);
-          setAppointments(appointmentsResponse.data.data || []);
-          setReports(reportsResponse.data.data || []);
-          setUnreadNotifications(
-            notificationsResponse.data.data.unreadCount || 0,
-          );
+          appointmentData = appointmentsResponse.data.data || [];
+          reportData = reportsResponse.data.data || [];
+          notificationCount = notificationsResponse.data.data.unreadCount || 0;
         }
-      } catch {
-        setAppointments([]);
-        setReports([]);
+        if (active) {
+          setAppointments(appointmentData);
+          setReports(reportData);
+          setUnreadNotifications(notificationCount);
+        }
+      } catch (err) {
+        if (active) {
+          setError(err.response?.data?.message || "Unable to load dashboard data. Please try again.");
+        }
+      } finally {
+        if (active) setLoading(false);
       }
     };
 
     if (user) loadDashboardData();
-  }, [user]);
+    return () => {
+      active = false;
+    };
+  }, [user, retryCount]);
 
   return (
     <main className="min-h-screen bg-slate-100 p-6">
@@ -65,7 +79,7 @@ const DashboardPage = () => {
         <header className="mb-6 flex items-center justify-between rounded-2xl bg-white p-5 shadow-sm">
           <div>
             <p className="text-sm uppercase tracking-[0.2em] text-cyan-700">
-              BloodCare
+              HealthCare
             </p>
             <h1 className="mt-2 text-3xl font-bold text-slate-900">
               Welcome, {user?.name || "Patient"}
@@ -93,7 +107,17 @@ const DashboardPage = () => {
           </div>
         </header>
 
-        <section className="grid gap-4 md:grid-cols-3">
+        {loading && <p className="mb-5 rounded-xl bg-white p-4 text-slate-700" role="status">Loading dashboard...</p>}
+        {error && (
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-rose-800" role="alert">
+            <span>{error}</span>
+            <button className="rounded-lg border border-rose-300 px-4 py-2 font-semibold" onClick={() => setRetryCount((count) => count + 1)}>
+              Retry
+            </button>
+          </div>
+        )}
+
+        {!loading && !error && <section className="grid gap-4 md:grid-cols-3">
           <div className="rounded-2xl bg-cyan-700 p-5 text-white shadow-sm">
             <p className="text-sm uppercase tracking-[0.2em] text-cyan-100">
               Upcoming
@@ -138,7 +162,7 @@ const DashboardPage = () => {
               </span>
             </Link>
           </div>
-        </section>
+        </section>}
 
         {user?.role === "PATIENT" && (
           <section className="mt-8 rounded-3xl bg-white p-6 shadow-sm">

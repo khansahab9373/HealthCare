@@ -6,8 +6,12 @@ const PatientReportsPage = () => {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [downloadingId, setDownloadingId] = useState(null);
 
   const downloadReport = async (report) => {
+    if (downloadingId) return;
+    setDownloadingId(report._id);
+    setError("");
     try {
       const response = await api.get(`/reports/${report._id}/download`, {
         responseType: "blob",
@@ -15,11 +19,21 @@ const PatientReportsPage = () => {
       const url = URL.createObjectURL(response.data);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `bloodcare-report-${report.test?.code}.pdf`;
+      link.download = `healthcare-report-${report.test?.code}.pdf`;
       link.click();
-      URL.revokeObjectURL(url);
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to download report.");
+      let message = err.response?.data?.message;
+      if (!message && err.response?.data instanceof Blob) {
+        try {
+          message = JSON.parse(await err.response.data.text()).message;
+        } catch {
+          message = "";
+        }
+      }
+      setError(message || "Unable to download report.");
+    } finally {
+      setDownloadingId(null);
     }
   };
 
@@ -90,10 +104,11 @@ const PatientReportsPage = () => {
                     </span>
                     <button
                       type="button"
+                      disabled={downloadingId === report._id}
                       onClick={() => downloadReport(report)}
                       className="rounded-full bg-cyan-700 px-3 py-1 text-sm font-semibold text-white"
                     >
-                      Download PDF
+                      {downloadingId === report._id ? "Preparing PDF..." : "Download PDF"}
                     </button>
                   </div>
                 </div>
@@ -105,7 +120,7 @@ const PatientReportsPage = () => {
                     </p>
                     <p>
                       <strong>Technician:</strong>{" "}
-                      {report.technician?.name || "BloodCare team"}
+                      {report.technician?.name || "HealthCare team"}
                     </p>
                     <p>
                       <strong>Report date:</strong>{" "}
