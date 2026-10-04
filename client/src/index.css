@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+:root {
+  color: #123b40;
+  background: #f5f8f7;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+.grid > * {
+  min-width: 0;
+}
+html,
+body,
+#root {
+  min-width: 320px;
+  min-height: 100%;
+  margin: 0;
+}
+body {
+  overflow-x: hidden;
+}
+button,
+input,
+select,
+textarea {
+  max-width: 100%;
+}
+button,
+a,
+select {
+  touch-action: manipulation;
+}
+table {
+  width: 100%;
+}
+
+.mobile-nav-trigger {
+  display: none;
+}
+.mobile-nav-drawer {
+  display: none;
+}
+.mobile-nav-drawer.is-open {
+  display: flex;
+}
+
+@media (max-width: 640px) {
+  main {
+    padding: 1rem !important;
+  }
+  main > div {
+    width: 100%;
+  }
+  main header {
+    padding: 1rem !important;
+  }
+  main header h1 {
+    font-size: 1.5rem;
+    line-height: 1.2;
+  }
+  main header > div:last-child {
+    flex-wrap: wrap;
+  }
+  main article header span,
+  main article > div:first-child > span {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    text-align: center;
+  }
+  main section,
+  main aside,
+  main article,
+  main form {
+    border-radius: 1rem !important;
+  }
+  main table {
+    min-width: 38rem;
+  }
+  .overflow-x-auto {
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
+  .mobile-nav-trigger {
+    display: block;
+  }
+}
+
+@media (min-width: 641px) {
+  .mobile-nav-drawer {
+    display: none;
+  }
+}
