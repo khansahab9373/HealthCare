@@ -137,6 +137,7 @@ const PatientReportsPage = () => {
                   <table className="min-w-full text-left text-sm">
                     <thead className="border-b border-slate-200 text-slate-500">
                       <tr>
+                        <th className="py-2 pr-5">Test</th>
                         <th className="py-2 pr-5">Marker</th>
                         <th className="py-2 pr-5">Value</th>
                         <th className="py-2 pr-5">Unit</th>
@@ -147,6 +148,9 @@ const PatientReportsPage = () => {
                     <tbody className="divide-y divide-slate-100">
                       {report.results.map((result, index) => (
                         <tr key={`${report._id}-${index}`}>
+                          <td className="py-3 pr-5 text-slate-600">
+                            {result.test?.name || report.test?.name || "Test"}
+                          </td>
                           <td className="py-3 pr-5 font-medium text-slate-800">
                             {result.marker}
                           </td>

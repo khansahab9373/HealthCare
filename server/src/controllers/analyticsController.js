@@ -23,7 +23,19 @@ export const getAdminAnalytics = async (req, res) => {
         { $sort: { _id: 1 } },
       ]),
       Appointment.aggregate([
-        { $group: { _id: "$test", count: { $sum: 1 } } },
+        {
+          $set: {
+            selectedTests: {
+              $cond: [
+                { $gt: [{ $size: { $ifNull: ["$tests", []] } }, 0] },
+                "$tests",
+                ["$test"],
+              ],
+            },
+          },
+        },
+        { $unwind: "$selectedTests" },
+        { $group: { _id: "$selectedTests", count: { $sum: 1 } } },
         { $sort: { count: -1 } },
         { $limit: 10 },
         {

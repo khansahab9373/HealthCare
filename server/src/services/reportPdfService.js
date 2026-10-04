@@ -49,7 +49,7 @@ export const createReportPdfBuffer = (report) =>
     document.moveDown();
     report.results.forEach((result) => {
       document.text(
-        `${result.marker}: ${result.value} ${result.unit || ""} | ${result.flag} | Reference: ${result.referenceRange || "N/A"} | Remarks: ${result.remarks || "N/A"}`,
+        `${result.test?.name || report.test?.name || "Test"} | ${result.marker}: ${result.value} ${result.unit || ""} | ${result.flag} | Reference: ${result.referenceRange || "N/A"} | Remarks: ${result.remarks || "N/A"}`,
       );
     });
     document.moveDown().text(`Interpretation: ${report.interpretation}`);

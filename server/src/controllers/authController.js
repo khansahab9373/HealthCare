@@ -127,7 +127,7 @@ export const loginUser = async (req, res) => {
     }
 
     const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
+    if (!isMatch || user.isActive === false) {
       return sendError(res, "Invalid email or password.", 401);
     }
 
@@ -198,7 +198,6 @@ export const updateCurrentUser = async (req, res) => {
       qualification,
       experience,
       professionalSkills,
-      qualifiedTests,
     } = req.body;
 
     if (!name?.trim()) {
@@ -217,7 +216,6 @@ export const updateCurrentUser = async (req, res) => {
           professionalSkills: Array.isArray(professionalSkills)
             ? professionalSkills.filter(Boolean)
             : [],
-          ...(Array.isArray(qualifiedTests) && { qualifiedTests }),
         }),
       },
       { new: true, runValidators: true },

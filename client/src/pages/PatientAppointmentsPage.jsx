@@ -225,31 +225,32 @@ const PatientAppointmentsPage = () => {
                   appointment.status,
                 ) && (
                   <div className="mt-4">
-                    {slotsLoading && (
-                      <p role="status">Finding available slots...</p>
-                    )}
-                    {!slotsLoading && rescheduleSlots.length === 0 && (
-                      <p className="text-sm text-slate-600">
-                        No replacement slots are available for this date.
-                      </p>
-                    )}
                     <button
                       type="button"
-                      disabled={slotsLoading || rescheduling || !rescheduleSlot}
-                      onClick={() =>
+                      disabled={rescheduling}
+                      onClick={() => {
+                        setRescheduleSlot(null);
                         setReschedule({
                           appointment,
                           date: new Date(appointment.appointmentDate)
                             .toISOString()
                             .slice(0, 10),
-                        })
-                      }
+                        });
+                      }}
                       className="rounded-full border border-cyan-200 px-4 py-2 text-sm font-semibold text-cyan-700"
                     >
                       Reschedule
                     </button>
                     {reschedule?.appointment._id === appointment._id && (
                       <div className="mt-3 space-y-3 rounded-xl bg-slate-50 p-4">
+                        {slotsLoading && (
+                          <p role="status">Finding available slots...</p>
+                        )}
+                        {!slotsLoading && rescheduleSlots.length === 0 && (
+                          <p className="text-sm text-slate-600">
+                            No replacement slots are available for this date.
+                          </p>
+                        )}
                         <input
                           type="date"
                           min={new Date().toISOString().slice(0, 10)}

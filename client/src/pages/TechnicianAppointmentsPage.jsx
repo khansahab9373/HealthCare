@@ -7,7 +7,6 @@ const nextStatusOptions = {
   TECHNICIAN_ASSIGNED: ["SAMPLE_COLLECTED", "NO_SHOW"],
   SAMPLE_COLLECTED: ["SAMPLE_RECEIVED", "NO_SHOW"],
   SAMPLE_RECEIVED: ["TESTING"],
-  TESTING: ["REPORT_SUBMITTED"],
 };
 
 const TechnicianAppointmentsPage = () => {

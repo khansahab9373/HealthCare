@@ -1,12 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import api from "../services/api.js";
 
 const TechnicianReportPage = () => {
   const { appointmentId } = useParams();
   const navigate = useNavigate();
+  const [appointment, setAppointment] = useState(null);
+  const [appointmentLoading, setAppointmentLoading] = useState(true);
   const [results, setResults] = useState([
     {
+      test: "",
       marker: "",
       value: "",
       unit: "",
@@ -19,6 +22,48 @@ const TechnicianReportPage = () => {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const appointmentTests = appointment?.tests?.length
+    ? appointment.tests
+    : appointment?.test
+      ? [appointment.test]
+      : [];
+
+  useEffect(() => {
+    let active = true;
+    const loadAppointment = async () => {
+      setAppointmentLoading(true);
+      setError("");
+      try {
+        const { data } = await api.get("/appointments/technician");
+        const found = (data.data || []).find(
+          (item) => item._id === appointmentId,
+        );
+        if (!found) {
+          if (active) setError("Appointment not found or not assigned to you.");
+          return;
+        }
+        if (active) {
+          setAppointment(found);
+          const firstTest = found.tests?.[0]?._id || found.test?._id || "";
+          setResults((current) =>
+            current.map((result) => ({ ...result, test: firstTest })),
+          );
+        }
+      } catch (err) {
+        if (active) {
+          setError(
+            err.response?.data?.message || "Unable to load appointment tests.",
+          );
+        }
+      } finally {
+        if (active) setAppointmentLoading(false);
+      }
+    };
+    loadAppointment();
+    return () => {
+      active = false;
+    };
+  }, [appointmentId]);
 
   const updateResult = (index, field, value) => {
     setResults((current) =>
@@ -71,11 +116,34 @@ const TechnicianReportPage = () => {
           onSubmit={submitReport}
           className="space-y-5 rounded-2xl bg-white p-6 shadow-sm"
         >
+          {appointmentLoading && (
+            <p role="status" className="text-slate-600">
+              Loading appointment tests...
+            </p>
+          )}
           {results.map((result, index) => (
             <div
               key={index}
-              className="grid gap-3 rounded-xl border border-slate-200 p-4 md:grid-cols-5"
+              className="grid gap-3 rounded-xl border border-slate-200 p-4 md:grid-cols-6"
             >
+              <select
+                required
+                aria-label={`Result ${index + 1} test`}
+                value={result.test}
+                onChange={(event) =>
+                  updateResult(index, "test", event.target.value)
+                }
+                className="rounded-lg border border-slate-200 px-3 py-2"
+              >
+                <option value="" disabled>
+                  Select test
+                </option>
+                {appointmentTests.map((test) => (
+                  <option key={test._id} value={test._id}>
+                    {test.name} ({test.code})
+                  </option>
+                ))}
+              </select>
               <input
                 required
                 aria-label={`Result ${index + 1} marker`}
@@ -144,6 +212,7 @@ const TechnicianReportPage = () => {
               setResults((current) => [
                 ...current,
                 {
+                  test: appointmentTests[0]?._id || "",
                   marker: "",
                   value: "",
                   unit: "",
@@ -169,7 +238,7 @@ const TechnicianReportPage = () => {
           {error && <p className="text-rose-700">{error}</p>}
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || appointmentLoading || !appointment}
             className="rounded-xl bg-cyan-700 px-5 py-3 font-semibold text-white"
           >
             {submitting ? "Submitting..." : "Submit for approval"}

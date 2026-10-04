@@ -201,6 +201,44 @@ test("authentication and role authorization", async () => {
     .set(auth(patientToken));
   assert.equal(currentUser.status, 200);
   assert.equal(currentUser.body.data.role, "PATIENT");
+
+  const inactivePatient = await User.create({
+    name: "QA Inactive Patient",
+    email: "qa-inactive@example.com",
+    password,
+    role: "PATIENT",
+    isActive: false,
+  });
+  const inactivePatientLogin = await request(app)
+    .post("/api/auth/login")
+    .send({ email: inactivePatient.email, password });
+  assert.equal(inactivePatientLogin.status, 401);
+  assert.equal(
+    inactivePatientLogin.body.message,
+    "Invalid email or password.",
+  );
+
+  const suspended = await request(app)
+    .patch(`/api/users/technicians/${technician._id}/status`)
+    .set(auth(adminToken))
+    .send({ technicianStatus: "SUSPENDED" });
+  assert.equal(suspended.status, 200);
+  const inactiveLogin = await request(app)
+    .post("/api/auth/login")
+    .send({ email: technician.email, password });
+  assert.equal(inactiveLogin.status, 401);
+  assert.equal(inactiveLogin.body.message, "Invalid email or password.");
+  const reactivated = await request(app)
+    .patch(`/api/users/technicians/${technician._id}/status`)
+    .set(auth(adminToken))
+    .send({ technicianStatus: "VERIFIED" });
+  assert.equal(reactivated.status, 200);
+  assert.equal((await request(app)
+    .post("/api/auth/login")
+    .send({ email: technician.email, password })).status, 200);
+  assert.equal((await request(app)
+    .post("/api/auth/login")
+    .send({ email: admin.email, password })).status, 200);
 });
 
 test("admin test management and technician qualification", async () => {
@@ -233,6 +271,20 @@ test("admin test management and technician qualification", async () => {
     });
   assert.equal(qualifications.status, 200);
   assert.equal(qualifications.body.data.qualifiedTests.length, 2);
+
+  const selfUpdate = await request(app)
+    .patch("/api/auth/me")
+    .set(auth(technicianToken))
+    .send({
+      name: technician.name,
+      qualifiedTests: [testDefinition._id],
+    });
+  assert.equal(selfUpdate.status, 200);
+  const savedTechnician = await User.findById(technician._id);
+  assert.deepEqual(
+    savedTechnician.qualifiedTests.map(String),
+    [String(testDefinition._id), String(secondTestDefinition._id)],
+  );
 });
 
 test("availability and generated slots", async () => {
@@ -372,6 +424,34 @@ test("books multiple compatible tests in one appointment", async () => {
     saved.tests.map(String),
     [String(testDefinition._id), String(secondTestDefinition._id)],
   );
+
+  const analytics = await request(app)
+    .get("/api/analytics/admin")
+    .set(auth(adminToken));
+  assert.equal(analytics.status, 200);
+  const appointments = await Appointment.find();
+  const testCounts = new Map();
+  for (const item of appointments) {
+    const selectedTests = item.tests.length ? item.tests : [item.test];
+    for (const testId of selectedTests) {
+      const key = String(testId);
+      testCounts.set(key, (testCounts.get(key) || 0) + 1);
+    }
+  }
+  const testCatalog = await TestModel.find();
+  const expectedPopularity = testCatalog
+    .map((test) => ({
+      test: test.name,
+      count: testCounts.get(String(test._id)) || 0,
+    }))
+    .filter((item) => item.count > 0)
+    .sort((left, right) => right.count - left.count);
+  assert.deepEqual(
+    analytics.body.data.testPopularity
+      .map((item) => ({ test: item.test, count: item.count }))
+      .sort((left, right) => left.test.localeCompare(right.test)),
+    expectedPopularity.sort((left, right) => left.test.localeCompare(right.test)),
+  );
   await request(app)
     .patch(`/api/appointments/${saved._id}/cancel`)
     .set(auth(patientToken));
@@ -414,6 +494,7 @@ test("sample lifecycle, report review, patient ownership, PDF, notifications, an
     .set(auth(patientToken))
     .send({
       testId: testDefinition._id,
+      testIds: [testDefinition._id, secondTestDefinition._id],
       technicianId: technician._id,
       appointmentDate: date,
       startTime: "10:00",
@@ -444,10 +525,20 @@ test("sample lifecycle, report review, patient ownership, PDF, notifications, an
     .send({
       results: [
         {
+          test: testDefinition._id,
           marker: "Hemoglobin",
           value: "14",
           unit: "g/dL",
           referenceRange: "12-16",
+          remarks: "Within range",
+          flag: "NORMAL",
+        },
+        {
+          test: secondTestDefinition._id,
+          marker: "Total cholesterol",
+          value: "180",
+          unit: "mg/dL",
+          referenceRange: "0-200",
           remarks: "Within range",
           flag: "NORMAL",
         },
@@ -456,6 +547,10 @@ test("sample lifecycle, report review, patient ownership, PDF, notifications, an
     });
   assert.equal(submitted.status, 201);
   report = submitted.body.data;
+  assert.deepEqual(
+    report.results.map((result) => result.test.name),
+    [testDefinition.name, secondTestDefinition.name],
+  );
   const review = await request(app)
     .patch(`/api/reports/${report._id}/review`)
     .set(auth(adminToken))

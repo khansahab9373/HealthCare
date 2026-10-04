@@ -49,6 +49,28 @@ export const submitReport = async (req, res) => {
       return sendError(res, "This report is no longer editable.", 400);
     }
 
+    const appointmentTestIds = appointment.tests?.length
+      ? appointment.tests.map((test) => String(test._id || test))
+      : [String(appointment.test._id)];
+    const associatedResults = results.map((result) => ({
+      ...result,
+      test:
+        result.test ||
+        (appointmentTestIds.length === 1 ? appointmentTestIds[0] : undefined),
+    }));
+    if (
+      associatedResults.some(
+        (result) =>
+          !result.test || !appointmentTestIds.includes(String(result.test)),
+      )
+    ) {
+      return sendError(
+        res,
+        "Each result must be associated with a selected appointment test.",
+        400,
+      );
+    }
+
     const report = await Report.findOneAndUpdate(
       { appointment: appointment._id },
       {
@@ -59,7 +81,7 @@ export const submitReport = async (req, res) => {
         tests: appointment.tests?.length
           ? appointment.tests.map((test) => test._id || test)
           : [appointment.test._id],
-        results,
+        results: associatedResults,
         interpretation: interpretation || "",
         remarks: req.body.remarks || "",
         status: "SUBMITTED",
@@ -78,6 +100,7 @@ export const submitReport = async (req, res) => {
     )
       .populate("test", "name code")
       .populate("tests", "name code")
+      .populate("results.test", "name code")
       .populate("technician", "name");
 
     appointment.status = "REPORT_SUBMITTED";
@@ -121,6 +144,7 @@ export const getMyReports = async (req, res) => {
     })
       .populate("test", "name code")
       .populate("tests", "name code")
+      .populate("results.test", "name code")
       .populate("appointment", "appointmentDate sampleId")
       .populate("technician", "name")
       .sort({ createdAt: -1 });
@@ -139,6 +163,7 @@ export const getAdminReports = async (req, res) => {
       .populate("approvedBy", "name email")
       .populate("test", "name code")
       .populate("tests", "name code")
+      .populate("results.test", "name code")
       .populate("appointment", "appointmentDate startTime sampleId")
       .sort({ createdAt: -1 });
 
@@ -164,6 +189,7 @@ export const approveReport = async (req, res) => {
       .populate("technician", "name")
       .populate("test", "name code")
       .populate("tests", "name code")
+      .populate("results.test", "name code")
       .populate("appointment", "sampleId");
     if (!report) {
       return sendError(res, "Only a submitted report can be approved.", 400);
@@ -221,6 +247,7 @@ export const approveReport = async (req, res) => {
       .populate("approvedBy", "name email")
       .populate("test", "name code")
       .populate("tests", "name code")
+      .populate("results.test", "name code")
       .populate("appointment", "appointmentDate startTime");
 
     return sendSuccess(res, populatedReport, "Report approved successfully.");

@@ -31,6 +31,7 @@ const reportSchema = new mongoose.Schema(
     ],
     results: [
       {
+        test: { type: mongoose.Schema.Types.ObjectId, ref: "Test" },
         marker: { type: String, required: true, trim: true },
         value: { type: String, required: true, trim: true },
         unit: { type: String, default: "" },
