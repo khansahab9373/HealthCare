@@ -17,7 +17,8 @@ const AdminAnalyticsPage = () => {
         const { data } = await api.get("/analytics/admin");
         if (active) setAnalytics(data.data);
       } catch (err) {
-        if (active) setError(err.response?.data?.message || "Unable to load analytics.");
+        if (active)
+          setError(err.response?.data?.message || "Unable to load analytics.");
       } finally {
         if (active) setLoading(false);
       }
@@ -53,11 +54,21 @@ const AdminAnalyticsPage = () => {
           </Link>
         </header>
         {loading ? (
-          <div className="rounded-2xl bg-white p-7 shadow-sm" role="status">Loading analytics...</div>
+          <div className="rounded-2xl bg-white p-7 shadow-sm" role="status">
+            Loading analytics...
+          </div>
         ) : error ? (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-rose-800" role="alert">
+          <div
+            className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-rose-800"
+            role="alert"
+          >
             <p>{error}</p>
-            <button onClick={() => setReloadCount((count) => count + 1)} className="mt-3 rounded-lg border border-rose-300 px-4 py-2 font-semibold">Retry</button>
+            <button
+              onClick={() => setReloadCount((count) => count + 1)}
+              className="mt-3 rounded-lg border border-rose-300 px-4 py-2 font-semibold"
+            >
+              Retry
+            </button>
           </div>
         ) : !analytics ? (
           <p className="mb-4 rounded-xl bg-rose-50 p-4 text-rose-700">

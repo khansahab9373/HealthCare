@@ -36,12 +36,15 @@ export const downloadBuffer = async ({ publicId, format, resourceType }) => {
   });
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error(`Cloudinary download failed with status ${response.status}.`);
+    throw new Error(
+      `Cloudinary download failed with status ${response.status}.`,
+    );
   }
 
   return {
     buffer: Buffer.from(await response.arrayBuffer()),
-    contentType: response.headers.get("content-type") || "application/octet-stream",
+    contentType:
+      response.headers.get("content-type") || "application/octet-stream",
   };
 };
 

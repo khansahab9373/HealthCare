@@ -5,7 +5,11 @@ import { recordAudit } from "../services/auditService.js";
 import fs from "fs";
 import mongoose from "mongoose";
 import { randomUUID } from "node:crypto";
-import { deleteAsset, downloadBuffer, uploadBuffer } from "../services/cloudinaryStorage.js";
+import {
+  deleteAsset,
+  downloadBuffer,
+  uploadBuffer,
+} from "../services/cloudinaryStorage.js";
 
 export const getTechnicians = async (req, res) => {
   try {

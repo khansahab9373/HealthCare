@@ -28,7 +28,9 @@ describe("LoginPage", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Login" }));
 
-    expect(await screen.findByText("Invalid email or password.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Invalid email or password."),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText("Email")).toHaveValue("patient@example.com");
   });
 });

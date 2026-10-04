@@ -17,7 +17,8 @@ const AdminAuditPage = () => {
         const { data } = await api.get("/audit/admin");
         if (active) setLogs(data.data || []);
       } catch (err) {
-        if (active) setError(err.response?.data?.message || "Unable to load audit logs.");
+        if (active)
+          setError(err.response?.data?.message || "Unable to load audit logs.");
       } finally {
         if (active) setLoading(false);
       }
@@ -48,11 +49,24 @@ const AdminAuditPage = () => {
           </Link>
         </header>
         {loading ? (
-          <div className="rounded-2xl bg-white p-7 text-slate-700 shadow-sm" role="status">Loading audit events...</div>
+          <div
+            className="rounded-2xl bg-white p-7 text-slate-700 shadow-sm"
+            role="status"
+          >
+            Loading audit events...
+          </div>
         ) : error ? (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-800" role="alert">
+          <div
+            className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-800"
+            role="alert"
+          >
             <p>{error}</p>
-            <button onClick={() => setReloadCount((count) => count + 1)} className="mt-3 rounded-lg border border-rose-300 px-4 py-2 font-semibold">Retry</button>
+            <button
+              onClick={() => setReloadCount((count) => count + 1)}
+              className="mt-3 rounded-lg border border-rose-300 px-4 py-2 font-semibold"
+            >
+              Retry
+            </button>
           </div>
         ) : logs.length === 0 ? (
           <div className="rounded-2xl bg-white p-7 text-slate-700 shadow-sm">

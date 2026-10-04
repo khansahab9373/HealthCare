@@ -4,7 +4,7 @@ import api from "../services/api.js";
 
 const PatientTestsPage = () => {
   const [tests, setTests] = useState([]);
-  const [selectedTestId, setSelectedTestId] = useState("");
+  const [selectedTestIds, setSelectedTestIds] = useState([]);
   const [date, setDate] = useState("");
   const [selectedSlotKey, setSelectedSlotKey] = useState("");
   const [slots, setSlots] = useState([]);
@@ -15,10 +15,19 @@ const PatientTestsPage = () => {
   const [booking, setBooking] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const selectedTest = tests.find((test) => test._id === selectedTestId);
+  const selectedTests = tests.filter((test) =>
+    selectedTestIds.includes(test._id),
+  );
+  const collectionAllowed =
+    selectedTests.length > 0 &&
+    selectedTests.every((test) =>
+      collectionType === "HOME_COLLECTION"
+        ? test.homeCollectionAvailable
+        : test.labVisitAvailable,
+    );
 
   useEffect(() => {
-    if (!selectedTestId || !date) {
+    if (!selectedTestIds.length || !date) {
       setSlots([]);
       setSelectedSlotKey("");
       return;
@@ -31,14 +40,14 @@ const PatientTestsPage = () => {
       setError("");
       try {
         const { data } = await api.get(
-          `/appointments/slots?testId=${selectedTestId}&date=${date}`,
+          `/appointments/slots?testIds=${encodeURIComponent(selectedTestIds.join(","))}&date=${date}`,
         );
         if (active) {
           setSlots(data.data || []);
           setSelectedSlotKey(
             data.data?.[0]
-            ? `${data.data[0].technicianId}-${data.data[0].startTime}`
-            : "",
+              ? `${data.data[0].technicianId}-${data.data[0].startTime}`
+              : "",
           );
         }
       } catch (err) {
@@ -56,7 +65,7 @@ const PatientTestsPage = () => {
     return () => {
       active = false;
     };
-  }, [selectedTestId, date]);
+  }, [selectedTestIds, date]);
 
   useEffect(() => {
     const fetchTests = async () => {
@@ -64,7 +73,7 @@ const PatientTestsPage = () => {
         const { data } = await api.get("/tests");
         setTests(data.data || []);
         if (data.data?.[0]) {
-          setSelectedTestId(data.data[0]._id);
+          setSelectedTestIds([data.data[0]._id]);
         }
       } catch (err) {
         setError(err.response?.data?.message || "Unable to load blood tests.");
@@ -82,6 +91,10 @@ const PatientTestsPage = () => {
     setError("");
     setMessage("");
 
+    if (!selectedTestIds.length) {
+      setError("Select at least one test before booking.");
+      return;
+    }
     const selectedSlot = slots.find(
       (slot) => `${slot.technicianId}-${slot.startTime}` === selectedSlotKey,
     );
@@ -93,7 +106,8 @@ const PatientTestsPage = () => {
     setBooking(true);
     try {
       const payload = {
-        testId: selectedTestId,
+        testId: selectedTestIds[0],
+        testIds: selectedTestIds,
         technicianId: selectedSlot.technicianId,
         appointmentDate: date,
         startTime: selectedSlot.startTime,
@@ -101,9 +115,9 @@ const PatientTestsPage = () => {
         address: collectionType === "HOME_COLLECTION" ? address : undefined,
       };
 
-      const { data } = await api.post("/appointments", payload);
+      await api.post("/appointments", payload);
       setMessage(
-        `Appointment booked successfully for ${data.data.test?.name || "your selected test"}.`,
+        `Appointment booked successfully for ${selectedTests.map((test) => test.name).join(", ")}.`,
       );
       setDate("");
       setSelectedSlotKey("");
@@ -117,16 +131,26 @@ const PatientTestsPage = () => {
     }
   };
 
-  const handleTestChange = (testId) => {
-    const test = tests.find((item) => item._id === testId);
-    setSelectedTestId(testId);
+  const handleTestChange = (testIds) => {
+    setSelectedTestIds(testIds);
+    const selected = tests.filter((test) => testIds.includes(test._id));
+    const homeCollectionAllowed =
+      selected.length > 0 &&
+      selected.every((test) => test.homeCollectionAvailable);
+    const labVisitAllowed =
+      selected.length > 0 && selected.every((test) => test.labVisitAvailable);
     if (
       collectionType === "HOME_COLLECTION" &&
-      !test?.homeCollectionAvailable
+      !homeCollectionAllowed &&
+      labVisitAllowed
     ) {
       setCollectionType("LAB_VISIT");
     }
-    if (collectionType === "LAB_VISIT" && !test?.labVisitAvailable) {
+    if (
+      collectionType === "LAB_VISIT" &&
+      !labVisitAllowed &&
+      homeCollectionAllowed
+    ) {
       setCollectionType("HOME_COLLECTION");
     }
   };
@@ -164,9 +188,16 @@ const PatientTestsPage = () => {
             Loading tests...
           </div>
         ) : error && tests.length === 0 ? (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-7 text-rose-800" role="alert">{error}</div>
+          <div
+            className="rounded-2xl border border-rose-200 bg-rose-50 p-7 text-rose-800"
+            role="alert"
+          >
+            {error}
+          </div>
         ) : tests.length === 0 ? (
-          <div className="rounded-2xl bg-white p-7 text-slate-700 shadow-sm">No blood tests are currently available.</div>
+          <div className="rounded-2xl bg-white p-7 text-slate-700 shadow-sm">
+            No blood tests are currently available.
+          </div>
         ) : (
           <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
             <section className="space-y-4">
@@ -197,9 +228,17 @@ const PatientTestsPage = () => {
                   <button
                     type="button"
                     className="mt-4 rounded-full bg-slate-900 px-4 py-2 font-medium text-white"
-                    onClick={() => handleTestChange(test._id)}
+                    onClick={() =>
+                      handleTestChange(
+                        selectedTestIds.includes(test._id)
+                          ? selectedTestIds.filter((id) => id !== test._id)
+                          : [...selectedTestIds, test._id],
+                      )
+                    }
                   >
-                    Select this test
+                    {selectedTestIds.includes(test._id)
+                      ? "Remove test"
+                      : "Add test"}
                   </button>
                 </article>
               ))}
@@ -209,13 +248,25 @@ const PatientTestsPage = () => {
               <h2 className="text-2xl font-bold">Book appointment</h2>
               <form className="mt-5 space-y-4" onSubmit={handleBooking}>
                 <div>
-                  <label htmlFor="booking-test" className="mb-2 block text-sm text-slate-300">
-                    Test
+                  <label
+                    htmlFor="booking-tests"
+                    className="mb-2 block text-sm text-slate-300"
+                  >
+                    Tests (select one or more)
                   </label>
                   <select
-                    id="booking-test"
-                    value={selectedTestId}
-                    onChange={(e) => handleTestChange(e.target.value)}
+                    id="booking-tests"
+                    multiple
+                    size={Math.min(Math.max(tests.length, 2), 5)}
+                    value={selectedTestIds}
+                    onChange={(event) =>
+                      handleTestChange(
+                        Array.from(
+                          event.target.selectedOptions,
+                          (option) => option.value,
+                        ),
+                      )
+                    }
                     className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-3 text-white outline-none"
                   >
                     {tests.map((test) => (
@@ -226,7 +277,19 @@ const PatientTestsPage = () => {
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="booking-date" className="mb-2 block text-sm text-slate-300">
+                  {selectedTests.length > 1 && !collectionAllowed && (
+                    <p
+                      className="text-sm font-medium text-rose-300"
+                      role="alert"
+                    >
+                      The selected tests do not share an available collection
+                      type. Remove a test to continue.
+                    </p>
+                  )}
+                  <label
+                    htmlFor="booking-date"
+                    className="mb-2 block text-sm text-slate-300"
+                  >
                     Date
                   </label>
                   <input
@@ -264,7 +327,10 @@ const PatientTestsPage = () => {
                             )
                           }
                           className={`rounded-lg border px-3 py-2 text-sm ${selectedSlotKey === `${slot.technicianId}-${slot.startTime}` ? "border-cyan-400 bg-cyan-500 text-slate-900" : "border-slate-700 bg-slate-800 text-white"}`}
-                          aria-pressed={selectedSlotKey === `${slot.technicianId}-${slot.startTime}`}
+                          aria-pressed={
+                            selectedSlotKey ===
+                            `${slot.technicianId}-${slot.startTime}`
+                          }
                         >
                           {slot.startTime} · {slot.technicianName}
                         </button>
@@ -273,7 +339,10 @@ const PatientTestsPage = () => {
                   </div>
                 </div>
                 <div>
-                  <label htmlFor="collection-type" className="mb-2 block text-sm text-slate-300">
+                  <label
+                    htmlFor="collection-type"
+                    className="mb-2 block text-sm text-slate-300"
+                  >
                     Collection type
                   </label>
                   <select
@@ -284,15 +353,17 @@ const PatientTestsPage = () => {
                   >
                     <option
                       value="LAB_VISIT"
-                      disabled={selectedTest && !selectedTest.labVisitAvailable}
+                      disabled={selectedTests.some(
+                        (test) => !test.labVisitAvailable,
+                      )}
                     >
                       Lab visit
                     </option>
                     <option
                       value="HOME_COLLECTION"
-                      disabled={
-                        selectedTest && !selectedTest.homeCollectionAvailable
-                      }
+                      disabled={selectedTests.some(
+                        (test) => !test.homeCollectionAvailable,
+                      )}
                     >
                       Home collection
                     </option>
@@ -356,7 +427,12 @@ const PatientTestsPage = () => {
                 )}
                 <button
                   type="submit"
-                  disabled={booking || slotsLoading || !selectedSlotKey}
+                  disabled={
+                    booking ||
+                    slotsLoading ||
+                    !selectedSlotKey ||
+                    !collectionAllowed
+                  }
                   className="w-full rounded-xl bg-cyan-500 px-4 py-3 font-semibold text-slate-900"
                 >
                   {booking ? "Booking..." : "Book slot"}

@@ -151,8 +151,17 @@ const TechnicianAvailabilityPage = () => {
           <h2 className="text-xl font-bold text-slate-900">
             Weekly working hours
           </h2>
-          {loading && <p className="mt-3 text-slate-600" role="status">Loading saved hours...</p>}
-          {loadFailed && <p className="mt-3 text-rose-700" role="alert">Saved hours could not be loaded. Saving is disabled to protect your existing schedule.</p>}
+          {loading && (
+            <p className="mt-3 text-slate-600" role="status">
+              Loading saved hours...
+            </p>
+          )}
+          {loadFailed && (
+            <p className="mt-3 text-rose-700" role="alert">
+              Saved hours could not be loaded. Saving is disabled to protect
+              your existing schedule.
+            </p>
+          )}
           <div className="mt-4 space-y-3">
             {availability.map((item, index) => (
               <div
@@ -282,7 +291,11 @@ const TechnicianAvailabilityPage = () => {
         {message && <p className="mt-4 text-emerald-700">{message}</p>}
         {error && <p className="mt-4 text-rose-700">{error}</p>}
         {loadFailed && (
-          <button type="button" onClick={() => setReloadCount((count) => count + 1)} className="mt-2 rounded-lg border border-rose-300 px-4 py-2 font-semibold text-rose-800">
+          <button
+            type="button"
+            onClick={() => setReloadCount((count) => count + 1)}
+            className="mt-2 rounded-lg border border-rose-300 px-4 py-2 font-semibold text-rose-800"
+          >
             Retry loading availability
           </button>
         )}

@@ -33,14 +33,19 @@ const AdminTechniciansPage = () => {
           setTests(testResponse.data.data || []);
         }
       } catch (err) {
-        if (active) setError(err.response?.data?.message || "Unable to load technicians.");
+        if (active)
+          setError(
+            err.response?.data?.message || "Unable to load technicians.",
+          );
       } finally {
         if (active) setLoading(false);
       }
     };
 
     loadTechnicians();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [retryCount]);
 
   const updateStatus = async (technicianId, technicianStatus) => {
@@ -116,8 +121,8 @@ const AdminTechniciansPage = () => {
         err.response?.data?.message ||
           "Unable to access verification document.",
       );
-        } finally {
-          setDownloadingDocumentId(null);
+    } finally {
+      setDownloadingDocumentId(null);
     }
   };
 
@@ -151,9 +156,17 @@ const AdminTechniciansPage = () => {
             Loading technicians...
           </div>
         ) : error && technicians.length === 0 ? (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-rose-800" role="alert">
+          <div
+            className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-rose-800"
+            role="alert"
+          >
             <p>{error}</p>
-            <button onClick={() => setRetryCount((count) => count + 1)} className="mt-3 rounded-lg border border-rose-300 px-4 py-2 font-semibold">Retry</button>
+            <button
+              onClick={() => setRetryCount((count) => count + 1)}
+              className="mt-3 rounded-lg border border-rose-300 px-4 py-2 font-semibold"
+            >
+              Retry
+            </button>
           </div>
         ) : technicians.length === 0 ? (
           <div className="rounded-2xl bg-white p-7 text-slate-700 shadow-sm">
@@ -234,7 +247,9 @@ const AdminTechniciansPage = () => {
                                 )
                               }
                             >
-                              {downloadingDocumentId === document._id ? "Opening..." : document.name}
+                              {downloadingDocumentId === document._id
+                                ? "Opening..."
+                                : document.name}
                             </button>
                           </li>
                         ))}

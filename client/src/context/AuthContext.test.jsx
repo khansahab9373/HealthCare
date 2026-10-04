@@ -42,7 +42,9 @@ describe("AuthContext initialization", () => {
 
     expect(await screen.findByText("Verified user")).toBeInTheDocument();
     await waitFor(() => expect(api.get).toHaveBeenCalledWith("/auth/me"));
-    expect(JSON.parse(localStorage.getItem("bloodcare_user"))).not.toHaveProperty("address");
+    expect(
+      JSON.parse(localStorage.getItem("bloodcare_user")),
+    ).not.toHaveProperty("address");
   });
 
   it("clears a cached user when no token exists", async () => {

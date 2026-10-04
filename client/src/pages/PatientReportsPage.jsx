@@ -95,7 +95,9 @@ const PatientReportsPage = () => {
                       {report.test?.code}
                     </p>
                     <h2 className="mt-2 text-xl font-bold text-slate-900">
-                      {report.test?.name}
+                      {report.tests?.length
+                        ? report.tests.map((test) => test.name).join(", ")
+                        : report.test?.name}
                     </h2>
                   </div>
                   <div className="flex items-center gap-3">
@@ -108,7 +110,9 @@ const PatientReportsPage = () => {
                       onClick={() => downloadReport(report)}
                       className="rounded-full bg-cyan-700 px-3 py-1 text-sm font-semibold text-white"
                     >
-                      {downloadingId === report._id ? "Preparing PDF..." : "Download PDF"}
+                      {downloadingId === report._id
+                        ? "Preparing PDF..."
+                        : "Download PDF"}
                     </button>
                   </div>
                 </div>

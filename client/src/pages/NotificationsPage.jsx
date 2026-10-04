@@ -131,9 +131,17 @@ const NotificationsPage = () => {
             Loading notifications...
           </div>
         ) : error ? (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-rose-800" role="alert">
+          <div
+            className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-rose-800"
+            role="alert"
+          >
             <p>{error}</p>
-            <button onClick={() => setRetryCount((count) => count + 1)} className="mt-3 rounded-lg border border-rose-300 px-4 py-2 font-semibold">Retry</button>
+            <button
+              onClick={() => setRetryCount((count) => count + 1)}
+              className="mt-3 rounded-lg border border-rose-300 px-4 py-2 font-semibold"
+            >
+              Retry
+            </button>
           </div>
         ) : notifications.length === 0 ? (
           <div className="rounded-2xl bg-white p-7 text-slate-700 shadow-sm">
@@ -160,10 +168,15 @@ const NotificationsPage = () => {
                     {getNotificationDestination(notification) && (
                       <Link
                         to={getNotificationDestination(notification)}
-                        onClick={() => !notification.readAt && markRead(notification._id)}
+                        onClick={() =>
+                          !notification.readAt && markRead(notification._id)
+                        }
                         className="mt-3 inline-flex min-h-10 items-center font-semibold text-cyan-800 underline underline-offset-2"
                       >
-                        View related {notification.metadata?.reportId ? "report" : "appointment"}
+                        View related{" "}
+                        {notification.metadata?.reportId
+                          ? "report"
+                          : "appointment"}
                       </Link>
                     )}
                   </div>

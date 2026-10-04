@@ -32,8 +32,12 @@ describe("ProfilePage", () => {
     expect(screen.getByText("admin@example.com")).toBeInTheDocument();
     expect(screen.getByText("Administrator")).toBeInTheDocument();
     expect(screen.queryByText("Phone")).not.toBeInTheDocument();
-    expect(screen.queryByText("Saved collection address")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Saved collection address"),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("Qualification")).not.toBeInTheDocument();
-    expect(screen.queryByText("Verification documents")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Verification documents"),
+    ).not.toBeInTheDocument();
   });
 });

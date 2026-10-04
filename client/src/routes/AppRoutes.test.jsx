@@ -17,8 +17,14 @@ describe("Protected routes", () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByRole("heading", { name: "Access denied" })).toBeInTheDocument();
-    expect(screen.getByText("You don't have permission to access this page.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Go to dashboard" })).toHaveAttribute("href", "/dashboard");
+    expect(
+      await screen.findByRole("heading", { name: "Access denied" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("You don't have permission to access this page."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Go to dashboard" }),
+    ).toHaveAttribute("href", "/dashboard");
   });
 });

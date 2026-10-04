@@ -59,7 +59,9 @@ describe("PatientReportsPage PDF download", () => {
         <PatientReportsPage />
       </MemoryRouter>,
     );
-    fireEvent.click(await screen.findByRole("button", { name: "Download PDF" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Download PDF" }),
+    );
 
     await waitFor(() =>
       expect(api.get).toHaveBeenCalledWith("/reports/report-1/download", {

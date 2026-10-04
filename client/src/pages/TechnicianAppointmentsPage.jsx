@@ -89,9 +89,17 @@ const TechnicianAppointmentsPage = () => {
             Loading assignments...
           </div>
         ) : error && appointments.length === 0 ? (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-rose-800" role="alert">
+          <div
+            className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-rose-800"
+            role="alert"
+          >
             <p>{error}</p>
-            <button onClick={() => setRetryCount((count) => count + 1)} className="mt-3 rounded-lg border border-rose-300 px-4 py-2 font-semibold">Retry</button>
+            <button
+              onClick={() => setRetryCount((count) => count + 1)}
+              className="mt-3 rounded-lg border border-rose-300 px-4 py-2 font-semibold"
+            >
+              Retry
+            </button>
           </div>
         ) : appointments.length === 0 ? (
           <div className="rounded-2xl bg-white p-7 text-slate-700 shadow-sm">
@@ -110,7 +118,9 @@ const TechnicianAppointmentsPage = () => {
                       {appointment.test?.code}
                     </p>
                     <h2 className="mt-2 text-xl font-bold text-slate-900">
-                      {appointment.test?.name}
+                      {appointment.tests?.length
+                        ? appointment.tests.map((test) => test.name).join(", ")
+                        : appointment.test?.name}
                     </h2>
                     <p className="mt-1 text-slate-600">
                       Patient: {appointment.patient?.name} ·{" "}
@@ -152,7 +162,10 @@ const TechnicianAppointmentsPage = () => {
                   </label>
                   <select
                     id={`status-${appointment._id}`}
-                    disabled={updatingAppointmentId === appointment._id || !(nextStatusOptions[appointment.status] || []).length}
+                    disabled={
+                      updatingAppointmentId === appointment._id ||
+                      !(nextStatusOptions[appointment.status] || []).length
+                    }
                     value={appointment.status}
                     onChange={(event) =>
                       updateStatus(appointment._id, event.target.value)

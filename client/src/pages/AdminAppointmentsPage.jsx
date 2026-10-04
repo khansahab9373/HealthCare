@@ -32,14 +32,19 @@ const AdminAppointmentsPage = () => {
           setTechnicians(technicianResponse.data.data || []);
         }
       } catch (err) {
-        if (active) setError(err.response?.data?.message || "Unable to load the admin queue.");
+        if (active)
+          setError(
+            err.response?.data?.message || "Unable to load the admin queue.",
+          );
       } finally {
         if (active) setLoading(false);
       }
     };
 
     fetchAppointments();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [retryCount]);
 
   const updateStatus = async (appointmentId, status) => {
@@ -110,9 +115,17 @@ const AdminAppointmentsPage = () => {
             Loading queue...
           </div>
         ) : error && appointments.length === 0 ? (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-rose-800" role="alert">
+          <div
+            className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-rose-800"
+            role="alert"
+          >
             <p>{error}</p>
-            <button onClick={() => setRetryCount((count) => count + 1)} className="mt-3 rounded-lg border border-rose-300 px-4 py-2 font-semibold">Retry</button>
+            <button
+              onClick={() => setRetryCount((count) => count + 1)}
+              className="mt-3 rounded-lg border border-rose-300 px-4 py-2 font-semibold"
+            >
+              Retry
+            </button>
           </div>
         ) : appointments.length === 0 ? (
           <div className="rounded-2xl bg-white p-7 text-slate-700 shadow-sm">
@@ -142,7 +155,9 @@ const AdminAppointmentsPage = () => {
                       </p>
                     </td>
                     <td className="px-5 py-4 text-slate-700">
-                      {appointment.test?.name}
+                      {appointment.tests?.length
+                        ? appointment.tests.map((test) => test.name).join(", ")
+                        : appointment.test?.name}
                     </td>
                     <td className="px-5 py-4 text-slate-700">
                       <p>
@@ -179,19 +194,26 @@ const AdminAppointmentsPage = () => {
                     <td className="px-5 py-4">
                       <select
                         value={appointment.status}
-                        disabled={updatingAppointmentId === appointment._id || !(adminTransitions[appointment.status] || []).length}
+                        disabled={
+                          updatingAppointmentId === appointment._id ||
+                          !(adminTransitions[appointment.status] || []).length
+                        }
                         onChange={(event) =>
                           updateStatus(appointment._id, event.target.value)
                         }
                         aria-label={`Status for ${appointment.patient?.name || "appointment"}`}
                         className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-800 outline-none focus:border-cyan-500"
                       >
-                        <option value={appointment.status}>{appointment.status}</option>
-                        {(adminTransitions[appointment.status] || []).map((status) => (
-                          <option key={status} value={status}>
-                            {status}
-                          </option>
-                        ))}
+                        <option value={appointment.status}>
+                          {appointment.status}
+                        </option>
+                        {(adminTransitions[appointment.status] || []).map(
+                          (status) => (
+                            <option key={status} value={status}>
+                              {status}
+                            </option>
+                          ),
+                        )}
                       </select>
                     </td>
                   </tr>

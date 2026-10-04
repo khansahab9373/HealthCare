@@ -46,12 +46,12 @@ const ProfilePage = () => {
               pincode: form.pincode,
             },
             ...(technician && {
-          qualification: form.qualification,
-          experience: form.experience,
-          professionalSkills: form.professionalSkills
-            .split(",")
-            .map((item) => item.trim())
-            .filter(Boolean),
+              qualification: form.qualification,
+              experience: form.experience,
+              professionalSkills: form.professionalSkills
+                .split(",")
+                .map((item) => item.trim())
+                .filter(Boolean),
             }),
           };
       await updateProfile(profile);
@@ -107,24 +107,48 @@ const ProfilePage = () => {
                 className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3"
               />
             </label>
-            {!admin && <label className="text-sm font-medium text-slate-700">
-              Phone
-              <input
-                name="phone"
-                type="tel"
-                autoComplete="tel"
-                pattern="[+0-9() -]{7,20}"
-                value={form.phone}
-                onChange={updateField}
-                className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3"
-              />
-            </label>}
+            {!admin && (
+              <label className="text-sm font-medium text-slate-700">
+                Phone
+                <input
+                  name="phone"
+                  type="tel"
+                  autoComplete="tel"
+                  pattern="[+0-9() -]{7,20}"
+                  value={form.phone}
+                  onChange={updateField}
+                  className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3"
+                />
+              </label>
+            )}
             {admin && (
               <dl className="grid gap-3 rounded-xl bg-slate-50 p-4 text-sm sm:col-span-2 sm:grid-cols-2">
-                <div><dt className="text-slate-500">Email</dt><dd className="break-all font-semibold text-slate-800">{user.email}</dd></div>
-                <div><dt className="text-slate-500">Role</dt><dd className="font-semibold text-slate-800">Administrator</dd></div>
-                <div><dt className="text-slate-500">Account status</dt><dd className="font-semibold text-slate-800">{user.isActive === false ? "Inactive" : "Active"}</dd></div>
-                {user.updatedAt && <div><dt className="text-slate-500">Last updated</dt><dd className="font-semibold text-slate-800">{new Date(user.updatedAt).toLocaleDateString()}</dd></div>}
+                <div>
+                  <dt className="text-slate-500">Email</dt>
+                  <dd className="break-all font-semibold text-slate-800">
+                    {user.email}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500">Role</dt>
+                  <dd className="font-semibold text-slate-800">
+                    Administrator
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500">Account status</dt>
+                  <dd className="font-semibold text-slate-800">
+                    {user.isActive === false ? "Inactive" : "Active"}
+                  </dd>
+                </div>
+                {user.updatedAt && (
+                  <div>
+                    <dt className="text-slate-500">Last updated</dt>
+                    <dd className="font-semibold text-slate-800">
+                      {new Date(user.updatedAt).toLocaleDateString()}
+                    </dd>
+                  </div>
+                )}
               </dl>
             )}
           </div>
@@ -171,51 +195,53 @@ const ProfilePage = () => {
               </div>
             </>
           )}
-          {!admin && <div>
-            <h2 className="text-xl font-bold text-slate-900">
-              {technician ? "Address" : "Saved collection address"}
-            </h2>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <label className="text-sm font-medium text-slate-700 sm:col-span-2">
-                Street
-                <input
-                  name="street"
-                  value={form.street}
-                  onChange={updateField}
-                  className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3"
-                />
-              </label>
-              <label className="text-sm font-medium text-slate-700">
-                City
-                <input
-                  name="city"
-                  value={form.city}
-                  onChange={updateField}
-                  className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3"
-                />
-              </label>
-              <label className="text-sm font-medium text-slate-700">
-                State
-                <input
-                  name="state"
-                  value={form.state}
-                  onChange={updateField}
-                  className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3"
-                />
-              </label>
-              <label className="text-sm font-medium text-slate-700">
-                Pincode
-                <input
-                  name="pincode"
-                  inputMode="numeric"
-                  pattern="[0-9]{5,10}"
-                  value={form.pincode}
-                  onChange={updateField}
-                  className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3"
-                />
-              </label>
+          {!admin && (
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">
+                {technician ? "Address" : "Saved collection address"}
+              </h2>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <label className="text-sm font-medium text-slate-700 sm:col-span-2">
+                  Street
+                  <input
+                    name="street"
+                    value={form.street}
+                    onChange={updateField}
+                    className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3"
+                  />
+                </label>
+                <label className="text-sm font-medium text-slate-700">
+                  City
+                  <input
+                    name="city"
+                    value={form.city}
+                    onChange={updateField}
+                    className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3"
+                  />
+                </label>
+                <label className="text-sm font-medium text-slate-700">
+                  State
+                  <input
+                    name="state"
+                    value={form.state}
+                    onChange={updateField}
+                    className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3"
+                  />
+                </label>
+                <label className="text-sm font-medium text-slate-700">
+                  Pincode
+                  <input
+                    name="pincode"
+                    inputMode="numeric"
+                    pattern="[0-9]{5,10}"
+                    value={form.pincode}
+                    onChange={updateField}
+                    className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3"
+                  />
+                </label>
+              </div>
             </div>
-          </div>}
+          )}
           {message && <p className="text-emerald-700">{message}</p>}
           {error && <p className="text-rose-700">{error}</p>}
           <button
@@ -252,8 +278,16 @@ const TechnicianDocuments = ({ user, updateUser, setError, setMessage }) => {
       setFile(null);
       return;
     }
-    const allowedTypes = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
-    if (!allowedTypes.includes(selectedFile.type) || selectedFile.size > 5 * 1024 * 1024) {
+    const allowedTypes = [
+      "application/pdf",
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+    ];
+    if (
+      !allowedTypes.includes(selectedFile.type) ||
+      selectedFile.size > 5 * 1024 * 1024
+    ) {
       setFile(null);
       if (fileInput.current) fileInput.current.value = "";
       setError("Choose a PDF, JPG, PNG, or WEBP file no larger than 5 MB.");
@@ -340,9 +374,19 @@ const TechnicianDocuments = ({ user, updateUser, setError, setMessage }) => {
       </form>
       <ul className="mt-4 space-y-2 text-sm text-slate-600">
         {documents.map((document) => (
-          <li key={document._id} className="flex flex-wrap items-center justify-between gap-2">
-            <span>{document.name} ({Math.ceil(document.size / 1024)} KB)</span>
-            <button type="button" disabled={downloadingId === document._id} onClick={() => download(document)} className="font-semibold text-cyan-800 underline disabled:opacity-60">
+          <li
+            key={document._id}
+            className="flex flex-wrap items-center justify-between gap-2"
+          >
+            <span>
+              {document.name} ({Math.ceil(document.size / 1024)} KB)
+            </span>
+            <button
+              type="button"
+              disabled={downloadingId === document._id}
+              onClick={() => download(document)}
+              className="font-semibold text-cyan-800 underline disabled:opacity-60"
+            >
               {downloadingId === document._id ? "Downloading..." : "Download"}
             </button>
           </li>

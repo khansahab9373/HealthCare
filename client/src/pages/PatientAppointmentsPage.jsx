@@ -14,7 +14,10 @@ const PatientAppointmentsPage = () => {
   const [rescheduling, setRescheduling] = useState(false);
 
   useEffect(() => {
-    if (!reschedule?.date || !reschedule?.appointment.test?._id) {
+    const appointmentTests = reschedule?.appointment.tests?.length
+      ? reschedule.appointment.tests.map((test) => test._id || test)
+      : [reschedule?.appointment.test?._id].filter(Boolean);
+    if (!reschedule?.date || !appointmentTests.length) {
       setRescheduleSlots([]);
       setRescheduleSlot(null);
       return;
@@ -27,7 +30,7 @@ const PatientAppointmentsPage = () => {
       setError("");
       try {
         const { data } = await api.get(
-          `/appointments/slots?testId=${reschedule.appointment.test._id}&date=${reschedule.date}`,
+          `/appointments/slots?testIds=${encodeURIComponent(appointmentTests.join(","))}&date=${reschedule.date}`,
         );
         if (active) setRescheduleSlots(data.data || []);
       } catch (err) {
@@ -45,7 +48,7 @@ const PatientAppointmentsPage = () => {
     return () => {
       active = false;
     };
-  }, [reschedule?.date, reschedule?.appointment.test?._id]);
+  }, [reschedule?.date, reschedule?.appointment.tests, reschedule?.appointment.test?._id]);
 
   const cancelAppointment = async (appointmentId) => {
     if (cancelingId || !window.confirm("Cancel this appointment?")) return;
@@ -162,7 +165,9 @@ const PatientAppointmentsPage = () => {
                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                   <div>
                     <p className="text-xs uppercase tracking-[0.2em] text-cyan-700">
-                      {appointment.test?.name || "Test"}{" "}
+                      {appointment.tests?.length
+                        ? appointment.tests.map((test) => test.name).join(", ")
+                        : appointment.test?.name || "Test"}{" "}
                     </p>
                     <h2
                       className={`mt-2 text-xl font-bold ${appointment.status === "CANCELLED" ? "text-rose-700" : "text-slate-900"}`}
@@ -220,11 +225,17 @@ const PatientAppointmentsPage = () => {
                   appointment.status,
                 ) && (
                   <div className="mt-4">
-                          {slotsLoading && <p role="status">Finding available slots...</p>}
-                          {!slotsLoading && rescheduleSlots.length === 0 && <p className="text-sm text-slate-600">No replacement slots are available for this date.</p>}
-                          <button
+                    {slotsLoading && (
+                      <p role="status">Finding available slots...</p>
+                    )}
+                    {!slotsLoading && rescheduleSlots.length === 0 && (
+                      <p className="text-sm text-slate-600">
+                        No replacement slots are available for this date.
+                      </p>
+                    )}
+                    <button
                       type="button"
-                            disabled={slotsLoading || rescheduling || !rescheduleSlot}
+                      disabled={slotsLoading || rescheduling || !rescheduleSlot}
                       onClick={() =>
                         setReschedule({
                           appointment,
@@ -268,7 +279,9 @@ const PatientAppointmentsPage = () => {
                           onClick={submitReschedule}
                           className="rounded-lg bg-cyan-700 px-4 py-2 text-sm font-semibold text-white"
                         >
-                          {rescheduling ? "Rescheduling..." : "Confirm reschedule"}
+                          {rescheduling
+                            ? "Rescheduling..."
+                            : "Confirm reschedule"}
                         </button>
                       </div>
                     )}
@@ -283,7 +296,9 @@ const PatientAppointmentsPage = () => {
                     onClick={() => cancelAppointment(appointment._id)}
                     className="mt-4 rounded-full border border-rose-200 px-4 py-2 text-sm font-semibold text-rose-700"
                   >
-                    {cancelingId === appointment._id ? "Cancelling..." : "Cancel appointment"}
+                    {cancelingId === appointment._id
+                      ? "Cancelling..."
+                      : "Cancel appointment"}
                   </button>
                 )}
               </article>

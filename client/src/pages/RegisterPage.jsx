@@ -5,7 +5,7 @@ import api from "../services/api.js";
 
 const RegisterPage = ({ technicianOnly = false }) => {
   const navigate = useNavigate();
-  const { register } = useAuth();
+  const { register, updateUser } = useAuth();
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -22,28 +22,58 @@ const RegisterPage = ({ technicianOnly = false }) => {
   const [submitting, setSubmitting] = useState(false);
   const [tests, setTests] = useState([]);
   const [qualifiedTests, setQualifiedTests] = useState([]);
+  const [licenseDocument, setLicenseDocument] = useState(null);
+  const [accountCreated, setAccountCreated] = useState(false);
 
   useEffect(() => {
-    if (!technicianOnly) return;
+    let active = true;
+    const isTechnician = technicianOnly || form.role === "TECHNICIAN";
+
+    if (!isTechnician) {
+      setTests([]);
+      setQualifiedTests([]);
+      return () => {
+        active = false;
+      };
+    }
+
     api
       .get("/tests")
-      .then(({ data }) => setTests(data.data || []))
-      .catch(() => setTests([]));
-  }, [technicianOnly]);
+      .then(({ data }) => {
+        if (active) setTests(data.data || []);
+      })
+      .catch(() => {
+        if (active) setTests([]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [technicianOnly, form.role]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+    if (name === "role" && value === "PATIENT") {
+      setQualifiedTests([]);
+      setLicenseDocument(null);
+    }
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (submitting) return;
     setError("");
+
+    if (form.role === "TECHNICIAN" && !licenseDocument) {
+      setError("Upload your licence or registration document to continue.");
+      return;
+    }
+
     setSubmitting(true);
 
     try {
-      await register({
+      const registration = await register({
         ...form,
         professionalSkills: form.professionalSkills
           .split(",")
@@ -55,6 +85,30 @@ const RegisterPage = ({ technicianOnly = false }) => {
         },
         qualifiedTests,
       });
+      if (form.role === "TECHNICIAN") {
+        const document = new FormData();
+        document.append("document", licenseDocument);
+        document.append("name", "Licence / Registration Document");
+        try {
+          const { data } = await api.post(
+            "/users/me/verification-documents",
+            document,
+          );
+          updateUser({
+            ...registration.data.user,
+            verificationDocuments: data.data.verificationDocuments || [],
+          });
+        } catch (uploadError) {
+          const message =
+            uploadError.response?.data?.message ||
+            "Unable to upload your verification document.";
+          setError(
+            `Your technician account was created, but the document upload failed: ${message} Sign in and retry the upload from your profile.`,
+          );
+          setAccountCreated(true);
+          return;
+        }
+      }
       navigate("/dashboard");
     } catch (err) {
       setError(
@@ -139,12 +193,13 @@ const RegisterPage = ({ technicianOnly = false }) => {
               required
             />
           </div>
-          <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">
-              Role
-            </label>
-            {!technicianOnly && (
+          {!technicianOnly && (
+            <div>
+              <label htmlFor="register-role" className="mb-2 block text-sm font-medium text-slate-700">
+                Role
+              </label>
               <select
+                id="register-role"
                 name="role"
                 value={form.role}
                 onChange={handleChange}
@@ -153,8 +208,8 @@ const RegisterPage = ({ technicianOnly = false }) => {
                 <option value="PATIENT">PATIENT</option>
                 <option value="TECHNICIAN">TECHNICIAN</option>
               </select>
-            )}
-          </div>
+            </div>
+          )}
           {form.role === "TECHNICIAN" && (
             <>
               <div>
@@ -211,10 +266,11 @@ const RegisterPage = ({ technicianOnly = false }) => {
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-medium text-slate-700">
+                <label htmlFor="qualified-tests" className="mb-2 block text-sm font-medium text-slate-700">
                   Qualified tests
                 </label>
                 <select
+                  id="qualified-tests"
                   multiple
                   value={qualifiedTests}
                   onChange={(event) =>
@@ -235,6 +291,49 @@ const RegisterPage = ({ technicianOnly = false }) => {
                   ))}
                 </select>
               </div>
+              <div className="md:col-span-2">
+                <label
+                  htmlFor="license-document"
+                  className="mb-2 block text-sm font-medium text-slate-700"
+                >
+                  Licence / Registration Document
+                </label>
+                <input
+                  id="license-document"
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                  required
+                  onChange={(event) => {
+                    const selectedFile = event.target.files?.[0] || null;
+                    if (!selectedFile) {
+                      setLicenseDocument(null);
+                      return;
+                    }
+                    const acceptedTypes = [
+                      "application/pdf",
+                      "image/jpeg",
+                      "image/png",
+                    ];
+                    if (
+                      !acceptedTypes.includes(selectedFile.type) ||
+                      selectedFile.size > 5 * 1024 * 1024
+                    ) {
+                      event.target.value = "";
+                      setLicenseDocument(null);
+                      setError(
+                        "Choose a PDF, JPG, JPEG, or PNG document no larger than 5 MB.",
+                      );
+                      return;
+                    }
+                    setError("");
+                    setLicenseDocument(selectedFile);
+                  }}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3"
+                />
+                <p className="mt-2 text-sm text-slate-500">
+                  PDF, JPG, JPEG, or PNG. Maximum size 5 MB.
+                </p>
+              </div>
               <p className="md:col-span-2 text-sm text-slate-500">
                 Technician applications remain pending until an administrator
                 verifies them.
@@ -246,12 +345,24 @@ const RegisterPage = ({ technicianOnly = false }) => {
               {error}
             </p>
           )}
+          {accountCreated && (
+            <Link
+              to="/profile"
+              className="md:col-span-2 text-sm font-semibold text-cyan-800 underline"
+            >
+              Continue to your profile and retry document upload
+            </Link>
+          )}
           <button
             type="submit"
             disabled={submitting}
             className="md:col-span-2 w-full rounded-xl bg-cyan-700 px-4 py-3 font-semibold text-white"
           >
-            {submitting ? "Creating account..." : technicianOnly ? "Submit technician application" : "Register"}
+            {submitting
+              ? "Creating account..."
+              : technicianOnly
+                ? "Submit technician application"
+                : "Register"}
           </button>
         </form>
 

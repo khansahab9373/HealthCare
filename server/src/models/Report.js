@@ -23,6 +23,12 @@ const reportSchema = new mongoose.Schema(
       ref: "Test",
       required: true,
     },
+    tests: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Test",
+      },
+    ],
     results: [
       {
         marker: { type: String, required: true, trim: true },

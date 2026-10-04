@@ -17,7 +17,9 @@ export const submitReport = async (req, res) => {
     const appointment = await Appointment.findOne({
       _id: req.params.appointmentId,
       technician: req.user._id,
-    }).populate("test", "name code");
+    })
+      .populate("test", "name code")
+      .populate("tests", "name code");
 
     if (!appointment) {
       return sendError(
@@ -54,6 +56,9 @@ export const submitReport = async (req, res) => {
         patient: appointment.patient,
         technician: req.user._id,
         test: appointment.test._id,
+        tests: appointment.tests?.length
+          ? appointment.tests.map((test) => test._id || test)
+          : [appointment.test._id],
         results,
         interpretation: interpretation || "",
         remarks: req.body.remarks || "",
@@ -72,6 +77,7 @@ export const submitReport = async (req, res) => {
       },
     )
       .populate("test", "name code")
+      .populate("tests", "name code")
       .populate("technician", "name");
 
     appointment.status = "REPORT_SUBMITTED";
@@ -114,6 +120,7 @@ export const getMyReports = async (req, res) => {
       status: { $in: ["APPROVED", "PUBLISHED"] },
     })
       .populate("test", "name code")
+      .populate("tests", "name code")
       .populate("appointment", "appointmentDate sampleId")
       .populate("technician", "name")
       .sort({ createdAt: -1 });
@@ -131,6 +138,7 @@ export const getAdminReports = async (req, res) => {
       .populate("technician", "name email phone")
       .populate("approvedBy", "name email")
       .populate("test", "name code")
+      .populate("tests", "name code")
       .populate("appointment", "appointmentDate startTime sampleId")
       .sort({ createdAt: -1 });
 
@@ -155,6 +163,7 @@ export const approveReport = async (req, res) => {
       .populate("patient", "name email")
       .populate("technician", "name")
       .populate("test", "name code")
+      .populate("tests", "name code")
       .populate("appointment", "sampleId");
     if (!report) {
       return sendError(res, "Only a submitted report can be approved.", 400);
@@ -211,6 +220,7 @@ export const approveReport = async (req, res) => {
       .populate("technician", "name email phone")
       .populate("approvedBy", "name email")
       .populate("test", "name code")
+      .populate("tests", "name code")
       .populate("appointment", "appointmentDate startTime");
 
     return sendSuccess(res, populatedReport, "Report approved successfully.");
@@ -249,7 +259,10 @@ const reviewReport = async (req, res, nextStatus) => {
     if (!appointment)
       return sendError(res, "Report appointment not found.", 404);
     const report = await Report.findOneAndUpdate(
-      { _id: existingReport._id, status: { $in: ["SUBMITTED", "UNDER_REVIEW"] } },
+      {
+        _id: existingReport._id,
+        status: { $in: ["SUBMITTED", "UNDER_REVIEW"] },
+      },
       { status: nextStatus, rejectionReason: reason, reviewedAt: new Date() },
       { new: true, runValidators: true },
     );
@@ -379,6 +392,7 @@ export const downloadReport = async (req, res) => {
       .populate("test", "name code")
       .populate("technician", "name")
       .populate("approvedBy", "name")
+      .populate("tests", "name code")
       .populate("appointment", "sampleId");
 
     if (

@@ -18,13 +18,16 @@ const AdminReportsPage = () => {
         const { data } = await api.get("/reports/admin");
         if (active) setReports(data.data || []);
       } catch (err) {
-        if (active) setError(err.response?.data?.message || "Unable to load reports.");
+        if (active)
+          setError(err.response?.data?.message || "Unable to load reports.");
       } finally {
         if (active) setLoading(false);
       }
     };
     fetchReports();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [retryCount]);
 
   const approveReport = async (reportId) => {
@@ -114,9 +117,17 @@ const AdminReportsPage = () => {
             Loading reports...
           </div>
         ) : error ? (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-rose-800" role="alert">
+          <div
+            className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-rose-800"
+            role="alert"
+          >
             <p>{error}</p>
-            <button onClick={() => setRetryCount((count) => count + 1)} className="mt-3 rounded-lg border border-rose-300 px-4 py-2 font-semibold">Retry</button>
+            <button
+              onClick={() => setRetryCount((count) => count + 1)}
+              className="mt-3 rounded-lg border border-rose-300 px-4 py-2 font-semibold"
+            >
+              Retry
+            </button>
           </div>
         ) : reports.length === 0 ? (
           <div className="rounded-2xl bg-white p-7 text-slate-700 shadow-sm">
@@ -135,7 +146,9 @@ const AdminReportsPage = () => {
                       {report.test?.code}
                     </p>
                     <h2 className="mt-2 text-xl font-bold text-slate-900">
-                      {report.test?.name}
+                      {report.tests?.length
+                        ? report.tests.map((test) => test.name).join(", ")
+                        : report.test?.name}
                     </h2>
                     <p className="mt-1 text-slate-600">
                       Patient: {report.patient?.name} · Technician:{" "}

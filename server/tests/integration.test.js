@@ -29,6 +29,7 @@ let technician;
 let patient;
 let otherPatient;
 let testDefinition;
+let secondTestDefinition;
 let adminToken;
 let technicianToken;
 let patientToken;
@@ -67,14 +68,20 @@ before(async () => {
     });
     return stream;
   });
-  mock.method(cloudinary.utils, "private_download_url", (publicId, format) =>
-    `https://api.cloudinary.test/download/${encodeURIComponent(publicId)}.${format}`,
+  mock.method(
+    cloudinary.utils,
+    "private_download_url",
+    (publicId, format) =>
+      `https://api.cloudinary.test/download/${encodeURIComponent(publicId)}.${format}`,
   );
-  mock.method(globalThis, "fetch", async () =>
-    new Response(Buffer.from("%PDF-1.4 Cloudinary test document"), {
-      status: 200,
-      headers: { "content-type": "application/pdf" },
-    }),
+  mock.method(
+    globalThis,
+    "fetch",
+    async () =>
+      new Response(Buffer.from("%PDF-1.4 Cloudinary test document"), {
+        status: 200,
+        headers: { "content-type": "application/pdf" },
+      }),
   );
   ({ default: vercelHandler } = await import("../api/index.js"));
   ({ default: app } = await import("../src/app.js"));
@@ -101,6 +108,20 @@ before(async () => {
     labVisitAvailable: true,
     active: true,
   });
+  secondTestDefinition = await TestModel.create({
+    name: "QA Lipid Profile",
+    code: "QA-LIPID",
+    description: "QA lipid profile test",
+    category: "Biochemistry",
+    price: 150,
+    sampleType: "Blood",
+    preparationInstructions: "No preparation",
+    fastingRequired: false,
+    estimatedReportTime: "24 hours",
+    homeCollectionAvailable: true,
+    labVisitAvailable: true,
+    active: true,
+  });
   [admin, technician, patient, otherPatient] = await User.create([
     {
       name: "QA Admin",
@@ -114,7 +135,7 @@ before(async () => {
       password,
       role: "TECHNICIAN",
       technicianStatus: "VERIFIED",
-      qualifiedTests: [testDefinition._id],
+      qualifiedTests: [testDefinition._id, secondTestDefinition._id],
       availability: [
         { day: "MONDAY", startTime: "08:00", endTime: "12:00", off: false },
       ],
@@ -207,9 +228,11 @@ test("admin test management and technician qualification", async () => {
   const qualifications = await request(app)
     .patch(`/api/users/technicians/${technician._id}/qualifications`)
     .set(auth(adminToken))
-    .send({ qualifiedTests: [testDefinition._id] });
+    .send({
+      qualifiedTests: [testDefinition._id, secondTestDefinition._id],
+    });
   assert.equal(qualifications.status, 200);
-  assert.ok(qualifications.body.data.qualifiedTests.length === 1);
+  assert.equal(qualifications.body.data.qualifiedTests.length, 2);
 });
 
 test("availability and generated slots", async () => {
@@ -308,6 +331,52 @@ test("booking, duplicate protection, cancellation, and rescheduling", async () =
   assert.equal(cancelledAgain.status, 400);
 });
 
+test("books multiple compatible tests in one appointment", async () => {
+  const qualificationUpdate = await request(app)
+    .patch(`/api/users/technicians/${technician._id}/qualifications`)
+    .set(auth(adminToken))
+    .send({
+      qualifiedTests: [testDefinition._id, secondTestDefinition._id],
+    });
+  assert.equal(qualificationUpdate.status, 200);
+
+  const slots = await request(app)
+    .get(
+      `/api/appointments/slots?testIds=${testDefinition._id},${secondTestDefinition._id}&date=${date}`,
+    )
+    .set(auth(patientToken));
+  assert.equal(slots.status, 200);
+  assert.ok(slots.body.data.some((slot) => slot.technicianId === String(technician._id)));
+
+  const response = await request(app)
+    .post("/api/appointments")
+    .set(auth(patientToken))
+    .send({
+      testId: testDefinition._id,
+      testIds: [testDefinition._id, secondTestDefinition._id],
+      technicianId: technician._id,
+      appointmentDate: date,
+      startTime: "11:00",
+      collectionType: "LAB_VISIT",
+    });
+
+  assert.equal(response.status, 201, JSON.stringify(response.body));
+  assert.equal(String(response.body.data.test._id), String(testDefinition._id));
+  assert.deepEqual(
+    response.body.data.tests.map((test) => String(test._id)),
+    [String(testDefinition._id), String(secondTestDefinition._id)],
+  );
+
+  const saved = await Appointment.findById(response.body.data._id);
+  assert.deepEqual(
+    saved.tests.map(String),
+    [String(testDefinition._id), String(secondTestDefinition._id)],
+  );
+  await request(app)
+    .patch(`/api/appointments/${saved._id}/cancel`)
+    .set(auth(patientToken));
+});
+
 test("verification documents use Cloudinary and remain viewable by admins", async () => {
   const response = await request(app)
     .post("/api/users/me/verification-documents")
@@ -323,7 +392,11 @@ test("verification documents use Cloudinary and remain viewable by admins", asyn
   assert.match(document.secureUrl, /^https:\/\/res\.cloudinary\.test\//);
   assert.match(document.publicId, /^healthcare\/verification\//);
   assert.equal(document.resourceType, "raw");
-  assert.ok(cloudinaryUploads.some(({ options }) => options.folder === "healthcare/verification"));
+  assert.ok(
+    cloudinaryUploads.some(
+      ({ options }) => options.folder === "healthcare/verification",
+    ),
+  );
 
   const viewed = await request(app)
     .get(`/api/users/technicians/${technician._id}/documents/${document._id}`)
@@ -395,7 +468,11 @@ test("sample lifecycle, report review, patient ownership, PDF, notifications, an
   const storedReport = await Report.findById(report._id);
   assert.match(storedReport.pdfSecureUrl, /^https:\/\/res\.cloudinary\.test\//);
   assert.match(storedReport.pdfPublicId, /^healthcare\/reports\//);
-  assert.ok(cloudinaryUploads.some(({ options }) => options.folder === "healthcare/reports"));
+  assert.ok(
+    cloudinaryUploads.some(
+      ({ options }) => options.folder === "healthcare/reports",
+    ),
+  );
   const published = await request(app)
     .patch(`/api/reports/${report._id}/publish`)
     .set(auth(adminToken));

@@ -9,7 +9,9 @@ const mockUser = vi.hoisted(() => ({ role: "PATIENT" }));
 vi.mock("../context/AuthContext.jsx", () => ({
   useAuth: () => ({ user: mockUser }),
 }));
-vi.mock("../services/api.js", () => ({ default: { get: vi.fn(), patch: vi.fn() } }));
+vi.mock("../services/api.js", () => ({
+  default: { get: vi.fn(), patch: vi.fn() },
+}));
 
 describe("NotificationsPage", () => {
   beforeEach(() => {
@@ -47,7 +49,9 @@ describe("NotificationsPage", () => {
     expect(relatedLink).toHaveAttribute("href", "/patient/appointments");
     fireEvent.click(relatedLink);
     await waitFor(() =>
-      expect(api.patch).toHaveBeenCalledWith("/notifications/notification-1/read"),
+      expect(api.patch).toHaveBeenCalledWith(
+        "/notifications/notification-1/read",
+      ),
     );
   });
 });

@@ -32,9 +32,16 @@ export const createReportPdfBuffer = (report) =>
       .fontSize(11)
       .fillColor("#333")
       .text(`Patient: ${report.patient?.name || "Patient"}`);
-    document.text(`Test: ${report.test?.name || "Diagnostic test"} (${report.test?.code || "N/A"})`);
+    const reportTests = report.tests?.length ? report.tests : [report.test];
+    document.text(
+      `Tests: ${reportTests
+        .map((test) => `${test?.name || "Diagnostic test"} (${test?.code || "N/A"})`)
+        .join(", ")}`,
+    );
     document.text(`Technician: ${report.technician?.name || "Technician"}`);
-    document.text(`Sample ID: ${report.appointment?.sampleId || "Not available"}`);
+    document.text(
+      `Sample ID: ${report.appointment?.sampleId || "Not available"}`,
+    );
     document.text(`Report date: ${report.createdAt.toLocaleDateString()}`);
     document.text(
       `Approved: ${report.approvedAt?.toLocaleDateString() || "Approved"}`,

@@ -85,6 +85,7 @@ export const createAppointment = async (req, res) => {
   try {
     const {
       testId,
+      testIds,
       technicianId,
       appointmentDate,
       startTime,
@@ -93,7 +94,12 @@ export const createAppointment = async (req, res) => {
       address,
     } = req.body;
 
-    if (!testId || !appointmentDate || !startTime || !collectionType) {
+    const selectedTestIds = Array.isArray(testIds) && testIds.length
+      ? testIds
+      : testId
+        ? [testId]
+        : [];
+    if (!selectedTestIds.length || !appointmentDate || !startTime || !collectionType) {
       return sendError(
         res,
         "Test, date, time, and collection type are required.",
@@ -101,21 +107,26 @@ export const createAppointment = async (req, res) => {
       );
     }
 
-    const test = await Test.findById(testId);
-    if (!test || !test.active) {
-      return sendError(res, "Selected test is not available.", 400);
+    const foundTests = await Test.find({
+      _id: { $in: selectedTestIds },
+      active: true,
+    });
+    const testsById = new Map(foundTests.map((test) => [String(test._id), test]));
+    const tests = selectedTestIds.map((id) => testsById.get(String(id)));
+    if (tests.some((test) => !test)) {
+      return sendError(res, "One or more selected tests are not available.", 400);
     }
 
-    if (collectionType === "HOME_COLLECTION" && !test.homeCollectionAvailable) {
+    if (collectionType === "HOME_COLLECTION" && tests.some((test) => !test.homeCollectionAvailable)) {
       return sendError(
         res,
-        "Home collection is not available for this test.",
+        "Home collection is not available for every selected test.",
         400,
       );
     }
 
-    if (collectionType === "LAB_VISIT" && !test.labVisitAvailable) {
-      return sendError(res, "Lab visits are not available for this test.", 400);
+    if (collectionType === "LAB_VISIT" && tests.some((test) => !test.labVisitAvailable)) {
+      return sendError(res, "Lab visits are not available for every selected test.", 400);
     }
 
     if (
@@ -134,7 +145,7 @@ export const createAppointment = async (req, res) => {
       role: "TECHNICIAN",
       technicianStatus: "VERIFIED",
       isActive: true,
-      qualifiedTests: test._id,
+      qualifiedTests: { $all: selectedTestIds },
     }).lean();
 
     if (!technician) {
@@ -195,7 +206,8 @@ export const createAppointment = async (req, res) => {
 
     const appointment = await Appointment.create({
       patient: req.user._id,
-      test: test._id,
+      test: tests[0]._id,
+      tests: tests.map((test) => test._id),
       technician: technician._id,
       slotKey: `${technician._id}_${appointmentDate}_${startTime}`,
       appointmentDate: appointmentStart,
@@ -215,13 +227,14 @@ export const createAppointment = async (req, res) => {
     const populated = await Appointment.findById(appointment._id)
       .populate("patient", "name email phone")
       .populate("test", "name code price")
+      .populate("tests", "name code price")
       .populate("technician", "name email phone");
 
     await createNotification({
       recipient: req.user._id,
       type: "APPOINTMENT_BOOKED",
       title: "Appointment booked",
-      message: `Your ${test.name} appointment is confirmed for ${appointmentDate}.`,
+      message: `Your ${tests.map((test) => test.name).join(", ")} appointment is confirmed for ${appointmentDate}.`,
       metadata: { appointmentId: appointment._id },
     });
     await recordAudit({
@@ -235,7 +248,7 @@ export const createAppointment = async (req, res) => {
       recipient: technician._id,
       type: "APPOINTMENT_ASSIGNED",
       title: "New appointment assigned",
-      message: `A ${test.name} appointment has been assigned to you for ${appointmentDate}.`,
+      message: `A ${tests.map((test) => test.name).join(", ")} appointment has been assigned to you for ${appointmentDate}.`,
       metadata: { appointmentId: appointment._id },
     });
     await recordAudit({
@@ -260,18 +273,26 @@ export const createAppointment = async (req, res) => {
 
 export const getAvailableSlots = async (req, res) => {
   try {
-    const { testId, date } = req.query;
-    if (!testId || !isValidDate(date))
-      return sendError(res, "Test and date are required.", 400);
+    const rawTestIds = req.query.testIds || req.query.testId;
+    const testIds = (Array.isArray(rawTestIds) ? rawTestIds : [rawTestIds])
+      .flatMap((value) => String(value || "").split(","))
+      .filter(Boolean);
+    const { date } = req.query;
+    if (!testIds.length || !isValidDate(date))
+      return sendError(res, "Tests and date are required.", 400);
 
-    const test = await Test.findOne({ _id: testId, active: true });
-    if (!test) return sendError(res, "Selected test is not available.", 404);
+    const tests = await Test.find({
+      _id: { $in: testIds },
+      active: true,
+    });
+    if (tests.length !== new Set(testIds).size)
+      return sendError(res, "One or more selected tests are not available.", 404);
 
     const technicians = await User.find({
       role: "TECHNICIAN",
       technicianStatus: "VERIFIED",
       isActive: true,
-      qualifiedTests: test._id,
+      qualifiedTests: { $all: testIds },
     }).lean();
     const day = dayNames[new Date(`${date}T00:00:00`).getDay()];
     const appointments = await Appointment.find({
@@ -332,6 +353,7 @@ export const getMyAppointments = async (req, res) => {
   try {
     const appointments = await Appointment.find({ patient: req.user._id })
       .populate("test", "name code price")
+      .populate("tests", "name code price")
       .populate("technician", "name email phone")
       .sort({ appointmentDate: 1 });
 
@@ -422,7 +444,9 @@ export const rescheduleMyAppointment = async (req, res) => {
     const appointment = await Appointment.findOne({
       _id: req.params.id,
       patient: req.user._id,
-    }).populate("test", "name");
+    })
+      .populate("test", "name")
+      .populate("tests", "name");
     if (!appointment) return sendError(res, "Appointment not found.", 404);
     if (
       !["REQUESTED", "CONFIRMED", "TECHNICIAN_ASSIGNED"].includes(
@@ -434,12 +458,15 @@ export const rescheduleMyAppointment = async (req, res) => {
         "This appointment can no longer be rescheduled.",
         400,
       );
+    const appointmentTestIds = appointment.tests?.length
+      ? appointment.tests.map((test) => test._id || test)
+      : [appointment.test._id];
     const technician = await User.findOne({
       _id: technicianId,
       role: "TECHNICIAN",
       technicianStatus: "VERIFIED",
       isActive: true,
-      qualifiedTests: appointment.test._id,
+      qualifiedTests: { $all: appointmentTestIds },
     }).lean();
     if (!technician)
       return sendError(
@@ -501,6 +528,7 @@ export const rescheduleMyAppointment = async (req, res) => {
     });
     const populated = await Appointment.findById(appointment._id)
       .populate("test", "name code price")
+      .populate("tests", "name code price")
       .populate("technician", "name email phone");
     return sendSuccess(res, populated, "Appointment rescheduled successfully.");
   } catch (error) {
@@ -519,6 +547,7 @@ export const getTechnicianAppointments = async (req, res) => {
     const appointments = await Appointment.find({ technician: req.user._id })
       .populate("patient", "name email phone")
       .populate("test", "name code price")
+      .populate("tests", "name code price")
       .sort({ appointmentDate: 1 });
 
     return sendSuccess(
@@ -630,7 +659,8 @@ export const updateAppointmentStatus = async (req, res) => {
 
     const populated = await Appointment.findById(appointment._id)
       .populate("patient", "name email phone")
-      .populate("test", "name code price");
+      .populate("test", "name code price")
+      .populate("tests", "name code price");
 
     return sendSuccess(
       res,
@@ -651,6 +681,7 @@ export const getAdminAppointments = async (req, res) => {
     const appointments = await Appointment.find()
       .populate("patient", "name email phone")
       .populate("test", "name code price")
+      .populate("tests", "name code price")
       .populate("technician", "name email phone")
       .sort({ appointmentDate: 1 });
 
@@ -716,6 +747,7 @@ export const updateAdminAppointmentStatus = async (req, res) => {
     const populated = await Appointment.findById(appointment._id)
       .populate("patient", "name email phone")
       .populate("test", "name code price")
+      .populate("tests", "name code price")
       .populate("technician", "name email phone");
 
     return sendSuccess(
@@ -748,7 +780,11 @@ export const reassignAppointment = async (req, res) => {
       role: "TECHNICIAN",
       technicianStatus: "VERIFIED",
       isActive: true,
-      qualifiedTests: appointment.test._id,
+      qualifiedTests: {
+        $all: appointment.tests?.length
+          ? appointment.tests.map((test) => test._id || test)
+          : [appointment.test._id],
+      },
     }).lean();
     if (!technician)
       return sendError(
@@ -799,6 +835,7 @@ export const reassignAppointment = async (req, res) => {
       await Appointment.findById(appointment._id)
         .populate("patient", "name email phone")
         .populate("test", "name code price")
+        .populate("tests", "name code price")
         .populate("technician", "name email phone"),
       "Appointment reassigned successfully.",
     );

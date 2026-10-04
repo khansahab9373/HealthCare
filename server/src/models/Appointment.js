@@ -12,6 +12,10 @@ const appointmentSchema = new mongoose.Schema(
       ref: "Test",
       required: true,
     },
+    tests: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Test",
+    }],
     technician: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

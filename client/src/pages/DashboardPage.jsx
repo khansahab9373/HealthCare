@@ -60,7 +60,10 @@ const DashboardPage = () => {
         }
       } catch (err) {
         if (active) {
-          setError(err.response?.data?.message || "Unable to load dashboard data. Please try again.");
+          setError(
+            err.response?.data?.message ||
+              "Unable to load dashboard data. Please try again.",
+          );
         }
       } finally {
         if (active) setLoading(false);
@@ -107,62 +110,77 @@ const DashboardPage = () => {
           </div>
         </header>
 
-        {loading && <p className="mb-5 rounded-xl bg-white p-4 text-slate-700" role="status">Loading dashboard...</p>}
+        {loading && (
+          <p
+            className="mb-5 rounded-xl bg-white p-4 text-slate-700"
+            role="status"
+          >
+            Loading dashboard...
+          </p>
+        )}
         {error && (
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-rose-800" role="alert">
+          <div
+            className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-rose-800"
+            role="alert"
+          >
             <span>{error}</span>
-            <button className="rounded-lg border border-rose-300 px-4 py-2 font-semibold" onClick={() => setRetryCount((count) => count + 1)}>
+            <button
+              className="rounded-lg border border-rose-300 px-4 py-2 font-semibold"
+              onClick={() => setRetryCount((count) => count + 1)}
+            >
               Retry
             </button>
           </div>
         )}
 
-        {!loading && !error && <section className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-2xl bg-cyan-700 p-5 text-white shadow-sm">
-            <p className="text-sm uppercase tracking-[0.2em] text-cyan-100">
-              Upcoming
-            </p>
-            <h2 className="mt-3 text-3xl font-bold">{appointments.length}</h2>
-            <p className="mt-2 text-cyan-100">Appointments</p>
-          </div>
-          <div className="rounded-2xl bg-white p-5 shadow-sm">
-            <p className="text-sm uppercase tracking-[0.2em] text-emerald-600">
-              Reports
-            </p>
-            <h2 className="mt-3 text-3xl font-bold text-slate-900">
-              {reports.length}
-            </h2>
-            {user?.role === "PATIENT" ? (
-              <Link
-                to="/patient/reports"
-                className="mt-2 inline-block text-cyan-700"
-              >
-                {reports.length} approved reports
-              </Link>
-            ) : (
-              <p className="mt-2 text-slate-600">
-                {reports.length} reports in queue
+        {!loading && !error && (
+          <section className="grid gap-4 md:grid-cols-3">
+            <div className="rounded-2xl bg-cyan-700 p-5 text-white shadow-sm">
+              <p className="text-sm uppercase tracking-[0.2em] text-cyan-100">
+                Upcoming
               </p>
-            )}
-          </div>
-          <div className="rounded-2xl bg-white p-5 shadow-sm">
-            <p className="text-sm uppercase tracking-[0.2em] text-violet-600">
-              Alerts
-            </p>
-            <h2 className="mt-3 text-3xl font-bold text-slate-900">
-              {unreadNotifications}
-            </h2>
-            <Link
-              to="/notifications"
-              className="mt-2 inline-flex items-center gap-2 text-cyan-700"
-            >
-              <span aria-hidden="true">&#128276;</span> Notifications{" "}
-              <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-700">
+              <h2 className="mt-3 text-3xl font-bold">{appointments.length}</h2>
+              <p className="mt-2 text-cyan-100">Appointments</p>
+            </div>
+            <div className="rounded-2xl bg-white p-5 shadow-sm">
+              <p className="text-sm uppercase tracking-[0.2em] text-emerald-600">
+                Reports
+              </p>
+              <h2 className="mt-3 text-3xl font-bold text-slate-900">
+                {reports.length}
+              </h2>
+              {user?.role === "PATIENT" ? (
+                <Link
+                  to="/patient/reports"
+                  className="mt-2 inline-block text-cyan-700"
+                >
+                  {reports.length} approved reports
+                </Link>
+              ) : (
+                <p className="mt-2 text-slate-600">
+                  {reports.length} reports in queue
+                </p>
+              )}
+            </div>
+            <div className="rounded-2xl bg-white p-5 shadow-sm">
+              <p className="text-sm uppercase tracking-[0.2em] text-violet-600">
+                Alerts
+              </p>
+              <h2 className="mt-3 text-3xl font-bold text-slate-900">
                 {unreadNotifications}
-              </span>
-            </Link>
-          </div>
-        </section>}
+              </h2>
+              <Link
+                to="/notifications"
+                className="mt-2 inline-flex items-center gap-2 text-cyan-700"
+              >
+                <span aria-hidden="true">&#128276;</span> Notifications{" "}
+                <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-700">
+                  {unreadNotifications}
+                </span>
+              </Link>
+            </div>
+          </section>
+        )}
 
         {user?.role === "PATIENT" && (
           <section className="mt-8 rounded-3xl bg-white p-6 shadow-sm">

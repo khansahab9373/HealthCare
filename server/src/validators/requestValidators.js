@@ -61,7 +61,18 @@ export const validateProfile = validate(({ body }) => {
 });
 
 export const validateBooking = validate(({ body }) => {
-  if (!isObjectId(body.testId)) return "A valid test is required.";
+  const testIds = Array.isArray(body.testIds)
+    ? body.testIds
+    : body.testId
+      ? [body.testId]
+      : [];
+  if (
+    testIds.length === 0 ||
+    testIds.some((testId) => !isObjectId(testId)) ||
+    new Set(testIds).size !== testIds.length ||
+    (body.testId && body.testId !== testIds[0])
+  )
+    return "One or more valid tests are required.";
   if (!isObjectId(body.technicianId))
     return "A valid technician slot is required.";
   if (!isValidDate(body.appointmentDate))

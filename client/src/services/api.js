@@ -15,7 +15,9 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    const isLoginRequest = error.config?.url?.replace(/\/$/, "").endsWith("/auth/login");
+    const isLoginRequest = error.config?.url
+      ?.replace(/\/$/, "")
+      .endsWith("/auth/login");
     if (!(isLoginRequest && error.response?.status === 401)) {
       window.dispatchEvent(
         new CustomEvent("bloodcare:toast", {

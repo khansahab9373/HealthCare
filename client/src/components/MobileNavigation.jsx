@@ -50,7 +50,8 @@ const MobileNavigation = () => {
     ["/", "/login", "/register", "/register/technician"].includes(
       location.pathname,
     )
-  ) return null;
+  )
+    return null;
 
   return (
     <>
@@ -111,7 +112,9 @@ const MobileNavigation = () => {
           <Link
             to="/notifications"
             onClick={() => setOpen(false)}
-            aria-current={location.pathname === "/notifications" ? "page" : undefined}
+            aria-current={
+              location.pathname === "/notifications" ? "page" : undefined
+            }
             className={`block rounded-xl px-3 py-3 font-semibold hover:bg-cyan-50 hover:text-cyan-800 ${location.pathname === "/notifications" ? "bg-cyan-50 text-cyan-900" : "text-slate-700"}`}
           >
             Notifications
