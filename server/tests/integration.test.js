@@ -19,6 +19,7 @@ const nextMonday = () => {
 const date = nextMonday();
 const testMongoUri = "mongodb://127.0.0.1:27017/bloodcare_test";
 let app;
+let vercelHandler;
 let admin;
 let technician;
 let patient;
@@ -42,6 +43,7 @@ before(async () => {
   // Set these before loading app.js so dotenv cannot point the test at server/.env.
   process.env.MONGO_URI = testMongoUri;
   process.env.JWT_SECRET = "integration-test-secret";
+  ({ default: vercelHandler } = await import("../api/index.js"));
   ({ default: app } = await import("../src/app.js"));
   await mongoose.connect(testMongoUri);
   await Promise.all([
@@ -106,6 +108,14 @@ before(async () => {
 after(async () => {
   await mongoose.connection.dropDatabase();
   await mongoose.disconnect();
+});
+
+test("API health endpoint", async () => {
+  const response = await request(vercelHandler).get("/api/health");
+  assert.equal(response.status, 200);
+  assert.equal(response.body.success, true);
+  assert.equal(response.body.message, "BloodCare API is running");
+  assert.ok(response.body.timestamp);
 });
 
 test("authentication and role authorization", async () => {

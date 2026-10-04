@@ -2,12 +2,14 @@ import app from "./app.js";
 import connectDB from "./config/db.js";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 dotenv.config();
 
 const PORT = Number(process.env.PORT) || 5000;
 
-const startServer = async () => {
+export const startServer = async () => {
   try {
     if (!process.env.JWT_SECRET?.trim()) {
       throw new Error(
@@ -33,7 +35,9 @@ const startServer = async () => {
     const shutdown = async (signal) => {
       console.log(`Received ${signal}. Shutting down BloodCare server.`);
       server.close(async () => {
-        await mongoose.connection.close();
+        if (mongoose.connection.readyState !== 0) {
+          await mongoose.connection.close();
+        }
         process.exit(0);
       });
     };
@@ -46,4 +50,10 @@ const startServer = async () => {
   }
 };
 
-startServer();
+const invokedDirectly =
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
+
+if (invokedDirectly && process.env.VERCEL !== "1") {
+  startServer();
+}
