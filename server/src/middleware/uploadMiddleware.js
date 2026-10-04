@@ -3,14 +3,21 @@ import path from "path";
 import multer from "multer";
 import { fileURLToPath } from "url";
 
-const uploadDirectory = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "../../uploads/verification",
-);
-fs.mkdirSync(uploadDirectory, { recursive: true });
+const uploadDirectory =
+  process.env.VERCEL === "1"
+    ? "/tmp/bloodcare/uploads/verification"
+    : path.resolve(
+        path.dirname(fileURLToPath(import.meta.url)),
+        "../../uploads/verification",
+      );
 
 const storage = multer.diskStorage({
-  destination: uploadDirectory,
+  destination: (req, file, callback) => {
+    // Vercel's /tmp filesystem is writable but ephemeral, not persistent storage.
+    fs.mkdir(uploadDirectory, { recursive: true }, (error) => {
+      callback(error, uploadDirectory);
+    });
+  },
   filename: (req, file, callback) => {
     const extension = path.extname(file.originalname).toLowerCase();
     callback(null, `${req.user._id}-${Date.now()}${extension}`);
